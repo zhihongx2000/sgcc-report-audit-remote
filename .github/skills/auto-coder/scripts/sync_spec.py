@@ -19,6 +19,7 @@ PHASE_RE = re.compile(r"^####\s+阶段\s+([A-Z])")
 TASK_RE = re.compile(
     r"^\|\s*([A-Z]\d+)\s*\|\s*([^|]+?)\s*\|\s*(\[(?: |~|x)\])\s*\|\s*([^|]*?)\s*\|"
 )
+DATE_FMT_RE = re.compile(r"^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
 
 
 @dataclass(frozen=True)
@@ -150,6 +151,28 @@ def choose_task(tasks: list[Task], requested_task: str | None) -> tuple[Task | N
     return last_completed, in_progress, selected
 
 
+def validate_completion_dates(tasks: list[Task]) -> list[str]:
+    warnings: list[str] = []
+    for task in tasks:
+        date_text = task.completed_date.strip()
+        if task.status == "[x]":
+            if date_text == "-":
+                warnings.append(
+                    f"{task.task_id} is completed but completion date is '-' (expected YY-MM-DD HH:mm:ss)."
+                )
+                continue
+            if not DATE_FMT_RE.match(date_text):
+                warnings.append(
+                    f"{task.task_id} completion date '{date_text}' is invalid (expected YY-MM-DD HH:mm:ss)."
+                )
+        else:
+            if date_text != "-":
+                warnings.append(
+                    f"{task.task_id} is not completed but completion date is set to '{date_text}' (expected '-')."
+                )
+    return warnings
+
+
 def build_markdown(
     tasks: list[Task],
     phase_stats: list[PhaseStats],
@@ -184,6 +207,7 @@ def build_markdown(
     lines.append("- `[ ]` not started")
     lines.append("- `[~]` in progress")
     lines.append("- `[x]` completed")
+    lines.append("- completion date format for completed tasks: `YY-MM-DD HH:mm:ss`")
     lines.append("")
     lines.append("Task selection algorithm:")
     lines.append("1. if user specifies task ID, use it,")
@@ -263,6 +287,7 @@ def main() -> int:
     try:
         section_62 = extract_slice(lines, "### 6.2", "### 6.3")
         tasks = parse_tasks(section_62)
+        date_warnings = validate_completion_dates(tasks)
         phase_stats = compute_phase_stats(tasks)
         last_completed, in_progress, selected = choose_task(tasks, args.task)
         output = build_markdown(
@@ -279,6 +304,11 @@ def main() -> int:
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(output, encoding="utf-8")
+
+    if date_warnings:
+        print("Date format warnings:", file=sys.stderr)
+        for warning in date_warnings:
+            print(f"- {warning}", file=sys.stderr)
 
     selected_id = selected.task_id if selected else "none"
     print(f"Wrote {out_path}")

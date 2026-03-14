@@ -26,7 +26,7 @@ Use these project toolchain versions by default:
 
 Execution rule:
 
-1. Use `uv` for Python dependency management and command execution.
+1. Use `uv` for Python dependency management and command execution. To guarantee the reproducibility of the project, you must use the uv add xxx command whenever adding new dependencies.
 2. Use `nvm`-managed Node/NPM for frontend tasks.
 3. If local versions differ, report mismatch before proceeding with risky changes.
 
@@ -118,7 +118,7 @@ After successful implementation and tests:
 
 1. Update selected task row in section `6.2`:
    - status,
-   - completion date.
+   - completion date in format `YY-MM-DD HH:mm:ss` (for example `26-03-14 14:30:45`).
 2. Update aggregate counters in section `6.3`.
 3. Run re-sync command:
 
