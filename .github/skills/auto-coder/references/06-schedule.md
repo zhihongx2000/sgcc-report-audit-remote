@@ -22,12 +22,12 @@ Task selection algorithm:
 
 ## Current Snapshot
 
-Generated at: `2026-03-14 14:24:54`
-Overall: `1/118` completed (`1%`)
+Generated at: `2026-03-14 14:53:26`
+Overall: `2/118` completed (`2%`)
 
 | Phase | Total | Done | In Progress | Not Started | Progress |
 | ----- | ----- | ---- | ----------- | ----------- | -------- |
-| A | 5 | 1 | 0 | 4 | 20% |
+| A | 5 | 2 | 0 | 3 | 40% |
 | B | 7 | 0 | 0 | 7 | 0% |
 | C | 10 | 0 | 0 | 10 | 0% |
 | D | 11 | 0 | 0 | 11 | 0% |
@@ -41,9 +41,9 @@ Overall: `1/118` completed (`1%`)
 
 ## Task Cursor
 
-- Last completed: `A1` 创建完整目录结构与空文件
+- Last completed: `A2` 建立最小可运行入口
 - In progress: `none`
-- Selected task (auto): `A2 (建立最小可运行入口)`
+- Selected task (auto): `A3 (初始化依赖与测试基线)`
 
 ## Re-sync
 

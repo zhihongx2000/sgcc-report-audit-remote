@@ -2411,6 +2411,8 @@ AuditResultView.vue 展示 20 项结果 + 判定说明 + 证据跳转
 
 系统通过 `rag-server/config/settings.yaml` 统一配置各组件实现，支持零代码切换：
 
+> 待确认：rag-server 和 sgcc-audit-report-app 中，postgresql是否指向了同一个数据库下的同一个表？
+
 ```yaml
 # rag-server/config/settings.yaml
 
@@ -2718,13 +2720,13 @@ read_only: true
 
 #### 阶段 A：工程骨架与测试基座
 
-| 任务编号 | 任务名称                 | 状态 | 完成日期 | 备注                                                                                                                                                                                        |
-| -------- | ------------------------ | ---- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A1       | 创建完整目录结构与空文件 | [x]  | 2026-03-14 | 严格按 5.2 目录树，创建所有目录与空文件（含 `rag-server/`、`sgcc-report-audit-app/`、`docs/`、`docker/` 及其全部子目录和文件），`.py`/`.ts`/`.vue`/`.css`/`.sql`/`.md`/`.yaml` 等均为空文件 |
-| A2       | 建立最小可运行入口       | [ ]  | -        | `rag-server/scripts/run_mcp_server.py`、`sgcc-report-audit-app/backend/src/sgcc_audit/main.py`、`frontend/src/main.ts`                                                                      |
-| A3       | 初始化依赖与测试基线     | [ ]  | -        | `pyproject.toml`、`uv.lock`、`pytest.ini`、`tests/unit`、`tests/integration`、`tests/e2e` 目录约定                                                                                          |
-| A4       | 配置加载与校验底座       | [ ]  | -        | `src/core/settings.py`、`sgcc_audit/core/config.py`，实现默认值/环境变量/文件优先级                                                                                                         |
-| A5       | 基础日志与异常规范       | [ ]  | -        | `core/logging.py`、`core/exceptions.py`、`core/constants.py`，统一错误码与 JSON 日志格式                                                                                                    |
+| 任务编号 | 任务名称                 | 状态 | 完成日期          | 备注                                                                                                                                                                                        |
+| -------- | ------------------------ | ---- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A1       | 创建完整目录结构与空文件 | [x]  | 26-03-14 14:00:39 | 严格按 5.2 目录树，创建所有目录与空文件（含 `rag-server/`、`sgcc-report-audit-app/`、`docs/`、`docker/` 及其全部子目录和文件），`.py`/`.ts`/`.vue`/`.css`/`.sql`/`.md`/`.yaml` 等均为空文件 |
+| A2       | 建立最小可运行入口       | [x]  | 26-03-14 14:49:11 | `rag-server/scripts/run_mcp_server.py`、`sgcc-report-audit-app/backend/src/sgcc_audit/main.py`、`frontend/src/main.ts`                                                                      |
+| A3       | 初始化依赖与测试基线     | [ ]  | -                 | `pyproject.toml`、`uv.lock`、`pytest.ini`、`tests/unit`、`tests/integration`、`tests/e2e` 目录约定                                                                                          |
+| A4       | 配置加载与校验底座       | [ ]  | -                 | `src/core/settings.py`、`sgcc_audit/core/config.py`，实现默认值/环境变量/文件优先级                                                                                                         |
+| A5       | 基础日志与异常规范       | [ ]  | -                 | `core/logging.py`、`core/exceptions.py`、`core/constants.py`，统一错误码与 JSON 日志格式                                                                                                    |
 
 #### 阶段 B：前端页面骨架优先落地（Vue3 + Vite）
 
@@ -2893,7 +2895,7 @@ read_only: true
 
 | 阶段     | 总任务数 | 已完成 | 进度   |
 | -------- | -------- | ------ | ------ |
-| 阶段 A   | 5        | 1      | 20%    |
+| 阶段 A   | 5        | 2      | 40%    |
 | 阶段 B   | 7        | 0      | 0%     |
 | 阶段 C   | 10       | 0      | 0%     |
 | 阶段 D   | 11       | 0      | 0%     |
@@ -2904,7 +2906,7 @@ read_only: true
 | 阶段 I   | 15       | 0      | 0%     |
 | 阶段 J   | 10       | 0      | 0%     |
 | 阶段 K   | 10       | 0      | 0%     |
-| **总计** | **118**  | **1**  | **1%** |
+| **总计** | **118**  | **2**  | **2%** |
 
 ### 6.4 分任务实现细则（按 6.2 全量展开）
 
