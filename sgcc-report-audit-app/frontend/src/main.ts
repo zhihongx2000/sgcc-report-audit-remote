@@ -1,24 +1,19 @@
-const APP_HTML = `
-	<main style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; padding: 24px; line-height: 1.6;">
-		<h1 style="margin: 0 0 12px;">SGCC Report Audit</h1>
-		<p style="margin: 0; color: #374151;">
-			Frontend bootstrap entry is ready. Full Vue page wiring will be completed in upcoming tasks.
-		</p>
-	</main>
-`;
+import { createApp, h, type VNode } from "vue";
 
-export function bootstrap(): void {
-	const root = document.getElementById("app");
-	if (!root) {
-		console.error("[frontend] #app root container is missing");
-		return;
-	}
-
-	root.innerHTML = APP_HTML;
+function bootstrap(): void {
+	createApp({
+		name: "BootstrapApp",
+		setup(): () => VNode {
+			return () =>
+				h("main", { class: "bootstrap-app" }, [
+					h("h1", "SGCC Report Audit"),
+					h(
+						"p",
+						"Vue 3 + Vite frontend scaffold is initialized. Route and page modules will be added in subsequent tasks.",
+					),
+				]);
+		},
+	}).mount("#app");
 }
 
-if (document.readyState === "loading") {
-	document.addEventListener("DOMContentLoaded", bootstrap, { once: true });
-} else {
-	bootstrap();
-}
+bootstrap();

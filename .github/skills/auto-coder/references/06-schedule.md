@@ -36,13 +36,13 @@ Task selection algorithm:
 
 ## Current Snapshot
 
-Generated at: `2026-03-16 13:18:09`
-Overall: `5/118` completed (`4%`)
+Generated at: `2026-03-16 14:43:16`
+Overall: `6/118` completed (`5%`)
 
 | Phase | Total | Done | In Progress | Not Started | Progress |
 | ----- | ----- | ---- | ----------- | ----------- | -------- |
 | A | 5 | 5 | 0 | 0 | 100% |
-| B | 7 | 0 | 0 | 7 | 0% |
+| B | 7 | 1 | 0 | 6 | 14% |
 | C | 10 | 0 | 0 | 10 | 0% |
 | D | 11 | 0 | 0 | 11 | 0% |
 | E | 16 | 0 | 0 | 16 | 0% |
@@ -55,9 +55,9 @@ Overall: `5/118` completed (`4%`)
 
 ## Task Cursor
 
-- Last completed: `A5` 基础日志与异常规范
+- Last completed: `B1` 初始化 Vue3+Vite 前端工程
 - In progress: `none`
-- Selected task (auto): `B1 (初始化 Vue3+Vite 前端工程)`
+- Selected task (auto): `B2 (路由与页面骨架)`
 - Selection reason: `first [ ] task in section order`
 
 ## Re-sync
