@@ -36,13 +36,13 @@ Task selection algorithm:
 
 ## Current Snapshot
 
-Generated at: `2026-03-16 17:32:17`
-Overall: `10/118` completed (`8%`)
+Generated at: `2026-03-16 17:41:58`
+Overall: `11/118` completed (`9%`)
 
 | Phase | Total | Done | In Progress | Not Started | Progress |
 | ----- | ----- | ---- | ----------- | ----------- | -------- |
 | A | 5 | 5 | 0 | 0 | 100% |
-| B | 7 | 5 | 0 | 2 | 71% |
+| B | 7 | 6 | 0 | 1 | 86% |
 | C | 10 | 0 | 0 | 10 | 0% |
 | D | 11 | 0 | 0 | 11 | 0% |
 | E | 16 | 0 | 0 | 16 | 0% |
@@ -55,9 +55,9 @@ Overall: `10/118` completed (`8%`)
 
 ## Task Cursor
 
-- Last completed: `B5` 前端状态管理基座
+- Last completed: `B6` API 客户端与 Mock 适配
 - In progress: `none`
-- Selected task (auto): `B6 (API 客户端与 Mock 适配)`
+- Selected task (auto): `B7 (前端骨架冒烟测试)`
 - Selection reason: `first [ ] task in section order`
 
 ## Re-sync
