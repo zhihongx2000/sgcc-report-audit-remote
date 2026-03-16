@@ -20,14 +20,28 @@ Task selection algorithm:
 2. else pick first `[~]` task in section order,
 3. else pick first `[ ]` task in section order.
 
+## Next Cycle Checklist
+
+- [ ] Read references in mandatory order (`00` -> `06`) before coding.
+- [ ] Confirm selected task acceptance in `DEV_SPEC.md` section `6.4`.
+- [ ] Keep implementation inside selected task scope only.
+- [ ] Run bounded test loop (`round 0..2`) and stop/escalate on round 3.
+- [ ] Update `6.2` and `6.3` after success, then re-sync this file.
+
+## Scope Guardrails
+
+- `DEV_SPEC.md` is authoritative over reference summaries.
+- Do not pull future-stage tasks into the current task unless user requests it.
+- Config staging: `A4` is baseline loading; full `5.6` semantics are aligned in `D10`.
+
 ## Current Snapshot
 
-Generated at: `2026-03-14 14:53:26`
-Overall: `2/118` completed (`2%`)
+Generated at: `2026-03-16 13:06:02`
+Overall: `4/118` completed (`3%`)
 
 | Phase | Total | Done | In Progress | Not Started | Progress |
 | ----- | ----- | ---- | ----------- | ----------- | -------- |
-| A | 5 | 2 | 0 | 3 | 40% |
+| A | 5 | 4 | 0 | 1 | 80% |
 | B | 7 | 0 | 0 | 7 | 0% |
 | C | 10 | 0 | 0 | 10 | 0% |
 | D | 11 | 0 | 0 | 11 | 0% |
@@ -41,12 +55,19 @@ Overall: `2/118` completed (`2%`)
 
 ## Task Cursor
 
-- Last completed: `A2` 建立最小可运行入口
+- Last completed: `A4` 配置加载与校验底座
 - In progress: `none`
-- Selected task (auto): `A3 (初始化依赖与测试基线)`
+- Selected task (auto): `A5 (基础日志与异常规范)`
+- Selection reason: `first [ ] task in section order`
 
 ## Re-sync
 
 ```bash
 python3 .github/skills/auto-coder/scripts/sync_spec.py --spec .github/skills/auto-coder/references/DEV_SPEC.md --force
+```
+
+Fallback (when workspace `python3` is broken):
+
+```bash
+./rag-server/.venv/bin/python .github/skills/auto-coder/scripts/sync_spec.py --spec .github/skills/auto-coder/references/DEV_SPEC.md --force
 ```

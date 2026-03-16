@@ -1,22 +1,35 @@
-# 05 Architecture
+# 05 Architecture Checklist
 
-When to read:
+## Use When
 
-- creating new modules,
+- creating/moving modules,
 - changing cross-layer behavior,
 - deciding file placement.
 
-Source anchors in `references/DEV_SPEC.md`:
+## Inputs
 
-- `## 5.` for system architecture and module design,
-- `### 5.2` for full directory structure,
-- `### 5.4` and `### 5.5` for layered responsibilities and data flow.
+1. `DEV_SPEC.md` section `5.2` (directory contract).
+2. `DEV_SPEC.md` sections `5.4` and `5.5` (layer and data-flow boundaries).
+3. `DEV_SPEC.md` section `5.6` for config-driven boundaries.
 
-Enforcement checklist:
+## Checklist
 
-1. map each code change to the correct layer,
-2. avoid bypassing layer boundaries,
-3. place files exactly where section `5.2` defines,
-4. keep contracts explicit between modules.
+- [ ] Map each change to one layer and one responsibility.
+- [ ] Keep dependencies flowing top-down through defined interfaces.
+- [ ] Place/modify files exactly under paths defined by `5.2`.
+- [ ] Do not bypass factory/config boundaries when spec requires them.
 
-If requested work violates the architecture contract, surface the conflict and ask for confirmation before proceeding.
+## Task-Boundary Note
+
+1. Configuration work in `A4` can use minimal fields for loader precedence.
+2. Full section `5.6` coverage is expected in `D10`.
+
+## Conflict Rule
+
+If requested work violates architecture boundaries, stop and ask user to confirm deviation.
+
+## Output Record
+
+1. Layer mapping for each changed file.
+2. Boundary checks passed/failed.
+3. Approved deviations (if any).

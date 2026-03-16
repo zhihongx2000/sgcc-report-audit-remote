@@ -1,0 +1,13 @@
+# NOTE:
+# This is the A4 baseline configuration used to validate loader priority
+# (defaults + settings.yaml + env overrides). It is intentionally minimal.
+# Full config-driven schema from DEV_SPEC section 5.6 is planned in D10.
+app_name: rag-mcp-server
+environment: development
+llm:
+  provider: qwen
+  model: qwen-plus
+  api_key: replace-me
+  timeout_seconds: 30
+retrieval:
+  top_k: 5

@@ -1,19 +1,28 @@
-# 02 Features
+# 02 Features Checklist
 
-When to read:
+## Use When
 
-- implementing business behavior,
-- defining API outputs,
-- validating user-facing logic.
+- implementing behavior,
+- defining request/response output,
+- validating user-visible logic.
 
-Source anchors in `references/DEV_SPEC.md`:
+## Inputs
 
-- `## 2.` for feature expectations and behavior.
+1. `DEV_SPEC.md` section `2`.
+2. Selected task row in `6.4`.
 
-Extract these facts:
+## Checklist
 
-1. required feature behavior,
-2. must-have output structure,
-3. rules that affect acceptance of the selected task.
+- [ ] Extract required behavior for current task.
+- [ ] Extract output shape constraints for current task.
+- [ ] Map each behavior rule to a code or test assertion.
 
-If section `2` and task details in `6.4` diverge, prefer `6.4` for task-level acceptance and raise the conflict to the user.
+## Output Record
+
+1. Behavior list for this task.
+2. Output semantics to preserve.
+3. Acceptance-linked assertions.
+
+## Conflict Rule
+
+If section `2` and `6.4` diverge, use `6.4` for task acceptance and ask user if scope changes are desired.

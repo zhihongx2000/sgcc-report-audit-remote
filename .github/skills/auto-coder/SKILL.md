@@ -14,6 +14,7 @@ Implement project tasks by treating `references/DEV_SPEC.md` as the single sourc
 3. If a conflict exists, stop and ask the user to choose the final requirement.
 4. Never skip the planning step.
 5. Read only what is needed, then implement fully.
+6. Before reading detailed sections in `references/DEV_SPEC.md`, always read `references/01-overview.md` to `references/06-schedule.md` to understand section intent and execution boundaries.
 
 ## Toolchain Baseline
 
@@ -26,7 +27,7 @@ Use these project toolchain versions by default:
 
 Execution rule:
 
-1. Use `uv` for Python dependency management and command execution. To guarantee the reproducibility of the project, you must use the uv add xxx command whenever adding new dependencies.
+1. Use `uv` for Python dependency management and command execution. To guarantee the reproducibility of the project, you must use the `uv add xxx` command whenever adding new dependencies.
 2. Use `nvm`-managed Node/NPM for frontend tasks.
 3. If local versions differ, report mismatch before proceeding with risky changes.
 
@@ -34,6 +35,7 @@ Execution rule:
 
 Load these references on demand:
 
+- `references/00-execution-checklist.md`: Execution control checklist and cross-section guardrails.
 - `references/DEV_SPEC.md`: Canonical full specification document.
 - `references/01-overview.md`: Project mission, boundaries, and non-goals.
 - `references/02-features.md`: Feature expectations and output behavior.
@@ -46,9 +48,22 @@ Run `python3 .github/skills/auto-coder/scripts/sync_spec.py --spec .github/skill
 
 ## Workflow
 
+### 0) Build Reference Context (Mandatory)
+
+1. Read these files first:
+   - `references/00-execution-checklist.md`
+   - `references/01-overview.md`
+   - `references/02-features.md`
+   - `references/03-tech-stack.md`
+   - `references/04-testing.md`
+   - `references/05-architecture.md`
+   - `references/06-schedule.md`
+2. Use the reference files to understand section meanings and task-stage boundaries before reading `references/DEV_SPEC.md` in detail.
+3. If a reference file and `DEV_SPEC.md` appear inconsistent, treat `DEV_SPEC.md` as authoritative and raise the conflict to the user.
+
 ### 1) Sync Spec and Pick Task
 
-1. Read `references/DEV_SPEC.md` section `6.2`.
+1. Read `references/06-schedule.md`, then read `references/DEV_SPEC.md` section `6.2`.
 2. Resolve target task with this priority:
    1. If user specifies a task ID (for example `E7`), use it directly.
    2. Else pick the first `[~]` task in section order.
@@ -69,6 +84,7 @@ Read only the sections needed for the selected task in `references/DEV_SPEC.md`:
    - section `6.4` row for the selected task.
 2. Read section `2` when behavior/output semantics are involved.
 3. Read section `1` when project context is missing.
+4. Use `references/01~05` guidance to avoid skipping section intent and boundary constraints.
 
 ### 3) Produce a Mandatory Plan
 
@@ -150,3 +166,5 @@ When reporting work, include:
 3. Tests run and result.
 4. Whether sections `6.2` and `6.3` were updated.
 5. Any remaining risks.
+
+and output each separately in code block format.

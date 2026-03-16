@@ -129,18 +129,26 @@ def compute_phase_stats(tasks: list[Task]) -> list[PhaseStats]:
     return stats
 
 
-def choose_task(tasks: list[Task], requested_task: str | None) -> tuple[Task | None, Task | None, Task | None]:
+def choose_task(
+    tasks: list[Task], requested_task: str | None
+) -> tuple[Task | None, Task | None, Task | None, str]:
     requested = requested_task.strip().upper() if requested_task else None
+    selection_reason = "no selectable task"
 
     if requested:
         selected = next((t for t in tasks if t.task_id.upper() == requested), None)
         if selected is None:
             known_ids = ", ".join(t.task_id for t in tasks)
             raise ValueError(f"Task '{requested}' not found. Known task IDs: {known_ids}")
+        selection_reason = "user requested task ID"
     else:
         selected = next((t for t in tasks if t.status == "[~]"), None)
         if selected is None:
             selected = next((t for t in tasks if t.status == "[ ]"), None)
+            if selected is not None:
+                selection_reason = "first [ ] task in section order"
+        else:
+            selection_reason = "first [~] task in section order"
 
     last_completed = None
     for task in tasks:
@@ -148,7 +156,7 @@ def choose_task(tasks: list[Task], requested_task: str | None) -> tuple[Task | N
             last_completed = task
 
     in_progress = next((t for t in tasks if t.status == "[~]"), None)
-    return last_completed, in_progress, selected
+    return last_completed, in_progress, selected, selection_reason
 
 
 def validate_completion_dates(tasks: list[Task]) -> list[str]:
@@ -180,6 +188,7 @@ def build_markdown(
     in_progress: Task | None,
     selected: Task | None,
     requested_task: str | None,
+    selection_reason: str,
 ) -> str:
     total_tasks = len(tasks)
     total_done = sum(1 for t in tasks if t.status == "[x]")
@@ -214,6 +223,20 @@ def build_markdown(
     lines.append("2. else pick first `[~]` task in section order,")
     lines.append("3. else pick first `[ ]` task in section order.")
     lines.append("")
+    lines.append("## Next Cycle Checklist")
+    lines.append("")
+    lines.append("- [ ] Read references in mandatory order (`00` -> `06`) before coding.")
+    lines.append("- [ ] Confirm selected task acceptance in `DEV_SPEC.md` section `6.4`.")
+    lines.append("- [ ] Keep implementation inside selected task scope only.")
+    lines.append("- [ ] Run bounded test loop (`round 0..2`) and stop/escalate on round 3.")
+    lines.append("- [ ] Update `6.2` and `6.3` after success, then re-sync this file.")
+    lines.append("")
+    lines.append("## Scope Guardrails")
+    lines.append("")
+    lines.append("- `DEV_SPEC.md` is authoritative over reference summaries.")
+    lines.append("- Do not pull future-stage tasks into the current task unless user requests it.")
+    lines.append("- Config staging: `A4` is baseline loading; full `5.6` semantics are aligned in `D10`.")
+    lines.append("")
     lines.append("## Current Snapshot")
     lines.append("")
     lines.append(f"Generated at: `{generated_at}`")
@@ -239,6 +262,7 @@ def build_markdown(
         lines.append(f"- In progress: `{in_progress.task_id}` {in_progress.name}")
 
     lines.append(f"- Selected task ({selected_rule}): `{selected_text}`")
+    lines.append(f"- Selection reason: `{selection_reason}`")
     lines.append("")
 
     lines.append("## Re-sync")
@@ -246,6 +270,14 @@ def build_markdown(
     lines.append("```bash")
     lines.append(
         "python3 .github/skills/auto-coder/scripts/sync_spec.py --spec .github/skills/auto-coder/references/DEV_SPEC.md --force"
+    )
+    lines.append("```")
+    lines.append("")
+    lines.append("Fallback (when workspace `python3` is broken):")
+    lines.append("")
+    lines.append("```bash")
+    lines.append(
+        "./rag-server/.venv/bin/python .github/skills/auto-coder/scripts/sync_spec.py --spec .github/skills/auto-coder/references/DEV_SPEC.md --force"
     )
     lines.append("```")
 
@@ -289,7 +321,7 @@ def main() -> int:
         tasks = parse_tasks(section_62)
         date_warnings = validate_completion_dates(tasks)
         phase_stats = compute_phase_stats(tasks)
-        last_completed, in_progress, selected = choose_task(tasks, args.task)
+        last_completed, in_progress, selected, selection_reason = choose_task(tasks, args.task)
         output = build_markdown(
             tasks=tasks,
             phase_stats=phase_stats,
@@ -297,6 +329,7 @@ def main() -> int:
             in_progress=in_progress,
             selected=selected,
             requested_task=args.task,
+            selection_reason=selection_reason,
         )
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

@@ -1,29 +1,37 @@
-# 03 Tech Stack
+# 03 Tech Stack Checklist
 
-When to read:
+## Use When
 
-- before adding dependencies,
-- before choosing frameworks, runtimes, or integration patterns.
+- adding/changing dependencies,
+- choosing runtime/framework integration patterns.
 
-Source anchors in `references/DEV_SPEC.md`:
+## Inputs
 
-- `## 3.` for approved stack and implementation boundaries.
+1. `DEV_SPEC.md` section `3`.
+2. Selected task acceptance from `6.4`.
 
-Extract these facts:
+## Checklist
 
-1. allowed runtime and framework choices,
-2. required integration approach,
-3. dependency restrictions.
+- [ ] Verify candidate change is allowed by section `3`.
+- [ ] Verify command/toolchain version baseline before risky changes.
+- [ ] Use `uv` for Python dependency and execution commands.
+- [ ] Avoid new libraries unless required by selected task.
 
-Environment baseline:
+## Environment Baseline
 
-1. Python project management: `uv 0.8.10`.
-2. Frontend environment management: `nvm 0.39.3`.
-3. Frontend package manager: `npm 11.9.0`.
-4. Node runtime: `node v24.14.0`.
+1. `uv 0.8.10`
+2. `nvm 0.39.3`
+3. `npm 11.9.0`
+4. `node v24.14.0`
 
-Implementation rule:
+## Configuration Staging Rule
 
-- prefer existing stack conventions,
-- avoid introducing libraries not justified by section `3`.
-- run Python commands with `uv`, and run frontend commands under the configured `nvm` Node runtime.
+1. `A4` builds config loading foundation with minimal key set.
+2. `D10` aligns full section `5.6` schema and strict validation.
+3. Do not force full `5.6` scope during `A4` unless user asks.
+
+## Output Record
+
+1. Stack compatibility decision.
+2. Dependency decision with spec justification.
+3. Any version mismatch and risk note.

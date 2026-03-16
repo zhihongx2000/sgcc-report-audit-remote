@@ -1,24 +1,32 @@
-# 04 Testing
+# 04 Testing Checklist
 
-When to read:
+## Use When
 
-- before writing or modifying tests,
-- before defining test scope for a task.
+- adding/updating tests,
+- deciding unit vs integration vs e2e scope.
 
-Source anchors in `references/DEV_SPEC.md`:
+## Inputs
 
-- `## 4.` for testing conventions,
-- `### 6.4` selected task row for acceptance and test method.
+1. `DEV_SPEC.md` section `4`.
+2. Selected task row in `6.4`.
+3. Directory placement rules from section `5.2`.
 
-Testing rules:
+## Checklist
 
-1. place tests in the tree defined by section `5.2`.
-2. mock external dependencies in unit tests.
-3. keep integration/e2e for cross-component behavior.
-4. run targeted tests first, then broader scope when needed.
+- [ ] Place tests under correct tree (`unit`/`integration`/`e2e`).
+- [ ] Ensure assertions directly map to selected task acceptance criteria.
+- [ ] Mock external dependencies in unit tests.
+- [ ] Run targeted pytest first, then broaden only if needed.
+- [ ] Follow bounded auto-fix loop (round 0..2).
 
-Minimum pre-run self-check:
+## Pre-Run Gate
 
-1. all new test files import cleanly,
-2. fixtures and paths match project layout,
-3. assertions map to `6.4` acceptance criteria.
+1. Test imports resolve.
+2. Fixtures/path assumptions match repository layout.
+3. Assertions and expected errors are deterministic.
+
+## Output Record
+
+1. Test files added/updated.
+2. Command list and pass/fail counts.
+3. Remaining testing risk.
