@@ -13,6 +13,9 @@ import json
 import sys
 from typing import Any
 
+from sgcc_audit.core.exceptions import register_exception_handlers
+from sgcc_audit.core.logging import setup_logging
+
 try:
 	from fastapi import FastAPI
 except ImportError:  # pragma: no cover - dependency will be added in later task.
@@ -47,10 +50,13 @@ def create_app() -> Any:
 	if FastAPI is None:
 		return _FallbackAsgiApp()
 
+	logger = setup_logging()
 	app = FastAPI(title="SGCC Report Audit Backend", version="0.1.0")
+	register_exception_handlers(app)
 
 	@app.get("/health")
 	async def health() -> dict[str, str]:
+		logger.info("health check", extra={"event": "health_check"})
 		return {"status": "ok", "service": "sgcc-audit-backend"}
 
 	return app

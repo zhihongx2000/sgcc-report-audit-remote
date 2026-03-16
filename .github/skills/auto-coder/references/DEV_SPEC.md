@@ -2732,7 +2732,7 @@ read_only: true
 | A2       | 建立最小可运行入口       | [x]  | 26-03-14 14:49:11 | `rag-server/scripts/run_mcp_server.py`、`sgcc-report-audit-app/backend/src/sgcc_audit/main.py`、`frontend/src/main.ts`                                                                      |
 | A3       | 初始化依赖与测试基线     | [x]  | 26-03-15 17:04:07 | `pyproject.toml`、`uv.lock`、`pytest.ini`、`tests/unit`、`tests/integration`、`tests/e2e` 目录约定                                                                                          |
 | A4       | 配置加载与校验底座       | [x]  | 26-03-16 12:11:58 | `src/core/settings.py`、`sgcc_audit/core/config.py`，实现默认值/环境变量/文件优先级                                                                                                         |
-| A5       | 基础日志与异常规范       | [ ]  | -                 | `core/logging.py`、`core/exceptions.py`、`core/constants.py`，统一错误码与 JSON 日志格式                                                                                                    |
+| A5       | 基础日志与异常规范       | [x]  | 26-03-16 13:18:10 | `core/logging.py`、`core/exceptions.py`、`core/constants.py`，统一错误码与 JSON 日志格式                                                                                                    |
 
 #### 阶段 B：前端页面骨架优先落地（Vue3 + Vite）
 
@@ -2901,7 +2901,7 @@ read_only: true
 
 | 阶段     | 总任务数 | 已完成 | 进度   |
 | -------- | -------- | ------ | ------ |
-| 阶段 A   | 5        | 4      | 80%    |
+| 阶段 A   | 5        | 5      | 100%   |
 | 阶段 B   | 7        | 0      | 0%     |
 | 阶段 C   | 10       | 0      | 0%     |
 | 阶段 D   | 11       | 0      | 0%     |
@@ -2912,7 +2912,7 @@ read_only: true
 | 阶段 I   | 15       | 0      | 0%     |
 | 阶段 J   | 10       | 0      | 0%     |
 | 阶段 K   | 10       | 0      | 0%     |
-| **总计** | **118**  | **4**  | **3%** |
+| **总计** | **118**  | **5**  | **4%** |
 
 ### 6.4 分任务实现细则（按 6.2 全量展开）
 
