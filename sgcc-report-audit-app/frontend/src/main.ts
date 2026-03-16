@@ -1,19 +1,15 @@
-import { createApp, h, type VNode } from "vue";
+import { createApp, h } from "vue";
+import { RouterView } from "vue-router";
+
+import { router } from "./router";
 
 function bootstrap(): void {
 	createApp({
-		name: "BootstrapApp",
-		setup(): () => VNode {
-			return () =>
-				h("main", { class: "bootstrap-app" }, [
-					h("h1", "SGCC Report Audit"),
-					h(
-						"p",
-						"Vue 3 + Vite frontend scaffold is initialized. Route and page modules will be added in subsequent tasks.",
-					),
-				]);
-		},
-	}).mount("#app");
+		name: "AppRoot",
+		render: () => h(RouterView),
+	})
+		.use(router)
+		.mount("#app");
 }
 
 bootstrap();
