@@ -24,6 +24,15 @@ Use this file as the control checklist for every auto-coder cycle.
 - [ ] Update `6.2` and `6.3` after success.
 - [ ] Re-sync schedule snapshot script.
 
+## Frontend Design Gate (When Task Touches `frontend/**`)
+
+- [ ] Load `.github/skills/frontend-design/SKILL.md` before implementation.
+- [ ] Apply `DEV_SPEC.md` section `3.5.7` as hard constraints.
+- [ ] Keep visual direction explicit (not generic admin template look).
+- [ ] Use CSS variables for color/spacing/motion tokens.
+- [ ] Verify responsive behavior: no horizontal overflow on mobile breakpoints.
+- [ ] Validate meaningful motion and interaction feedback (hover/focus/active).
+
 ## Scope Guardrails
 
 1. Prefer minimal implementation that satisfies selected task acceptance.

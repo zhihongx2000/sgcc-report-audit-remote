@@ -15,6 +15,7 @@ Implement project tasks by treating `references/DEV_SPEC.md` as the single sourc
 4. Never skip the planning step.
 5. Read only what is needed, then implement fully.
 6. Before reading detailed sections in `references/DEV_SPEC.md`, always read `references/01-overview.md` to `references/06-schedule.md` to understand section intent and execution boundaries.
+7. For frontend-facing tasks (especially stage `B*`, `C*`, `H8-H12`), you MUST load and follow `.github/skills/frontend-design/SKILL.md` and enforce `DEV_SPEC.md` section `3.5.7` visual design constraints.
 
 ## Toolchain Baseline
 
@@ -85,6 +86,7 @@ Read only the sections needed for the selected task in `references/DEV_SPEC.md`:
 2. Read section `2` when behavior/output semantics are involved.
 3. Read section `1` when project context is missing.
 4. Use `references/01~05` guidance to avoid skipping section intent and boundary constraints.
+5. For frontend UI/layout tasks, also read `DEV_SPEC.md` section `3.5.7` and treat it as acceptance-level constraint (not optional style advice).
 
 ### 3) Produce a Mandatory Plan
 
@@ -113,6 +115,7 @@ Do not start editing before this plan is explicit.
    - planned files exist,
    - test imports resolve,
    - config fields are read from config, not hardcoded.
+   - for frontend tasks: visual direction is explicit, CSS variables are used, mobile viewport has no horizontal overflow, and layout is not generic template style.
 
 ### 6) Test and Auto-Fix Loop
 

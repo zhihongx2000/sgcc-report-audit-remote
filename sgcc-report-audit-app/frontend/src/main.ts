@@ -1,15 +1,10 @@
-import { createApp, h } from "vue";
-import { RouterView } from "vue-router";
+import { createApp } from "vue";
 
+import App from "./App.vue";
 import { router } from "./router";
 
 function bootstrap(): void {
-	createApp({
-		name: "AppRoot",
-		render: () => h(RouterView),
-	})
-		.use(router)
-		.mount("#app");
+	createApp(App).use(router).mount("#app");
 }
 
 bootstrap();

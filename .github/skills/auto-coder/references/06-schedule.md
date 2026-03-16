@@ -36,13 +36,13 @@ Task selection algorithm:
 
 ## Current Snapshot
 
-Generated at: `2026-03-16 14:55:43`
-Overall: `7/118` completed (`6%`)
+Generated at: `2026-03-16 15:16:00`
+Overall: `8/118` completed (`7%`)
 
 | Phase | Total | Done | In Progress | Not Started | Progress |
 | ----- | ----- | ---- | ----------- | ----------- | -------- |
 | A | 5 | 5 | 0 | 0 | 100% |
-| B | 7 | 2 | 0 | 5 | 29% |
+| B | 7 | 3 | 0 | 4 | 43% |
 | C | 10 | 0 | 0 | 10 | 0% |
 | D | 11 | 0 | 0 | 11 | 0% |
 | E | 16 | 0 | 0 | 16 | 0% |
@@ -55,9 +55,9 @@ Overall: `7/118` completed (`6%`)
 
 ## Task Cursor
 
-- Last completed: `B2` 路由与页面骨架
+- Last completed: `B3` 全局布局与导航框架
 - In progress: `none`
-- Selected task (auto): `B3 (全局布局与导航框架)`
+- Selected task (auto): `B4 (设计变量与全局样式)`
 - Selection reason: `first [ ] task in section order`
 
 ## Re-sync
