@@ -63,6 +63,27 @@ export type ListBrowserDocumentsOptions = {
 	query?: string;
 };
 
+export type IngestionTaskStatus = "queued" | "running" | "failed" | "done";
+
+export type IngestionTaskRecord = {
+	taskId: string;
+	sourcePath: string;
+	collection: string;
+	status: IngestionTaskStatus;
+	progressPercent: number;
+	startedAt: string;
+	updatedAt: string;
+	errorMessage: string | null;
+	retryCount: number;
+	inputMode: "path" | "upload";
+};
+
+export type StartIngestionInput = {
+	sourcePath?: string;
+	fileName?: string;
+	collection?: string;
+};
+
 const CHECK_TITLES = [
 	"评估单位资质",
 	"报告审批签章",
@@ -443,6 +464,53 @@ const BROWSER_DETAILS: Record<string, BrowserDocumentDetail> = Object.fromEntrie
 	}),
 );
 
+const DEFAULT_INGESTION_COLLECTION = "sgcc-default";
+const INGESTION_FAILURE_HINT =
+	"摄取阶段 split 失败：文档结构异常，请检查文件编码或重试。";
+
+const INGESTION_SEEDS: IngestionTaskRecord[] = [
+	{
+		taskId: "ing-task-legacy-failed",
+		sourcePath:
+			"/data/documents/sgcc-default/legacy-fail-sample.docx",
+		collection: "sgcc-default",
+		status: "failed",
+		progressPercent: 64,
+		startedAt: "2026-03-17T18:22:10.000Z",
+		updatedAt: "2026-03-17T18:24:48.000Z",
+		errorMessage: INGESTION_FAILURE_HINT,
+		retryCount: 0,
+		inputMode: "path",
+	},
+	{
+		taskId: "ing-task-running-001",
+		sourcePath: "/data/documents/sgcc-default/coastal-grid-2026.pdf",
+		collection: "sgcc-default",
+		status: "running",
+		progressPercent: 42,
+		startedAt: "2026-03-17T18:31:12.000Z",
+		updatedAt: "2026-03-17T18:32:03.000Z",
+		errorMessage: null,
+		retryCount: 0,
+		inputMode: "upload",
+	},
+	{
+		taskId: "ing-task-done-001",
+		sourcePath: "/data/documents/sgcc-archive/harmonic-audit-2025.pdf",
+		collection: "sgcc-archive",
+		status: "done",
+		progressPercent: 100,
+		startedAt: "2026-03-17T17:02:08.000Z",
+		updatedAt: "2026-03-17T17:03:15.000Z",
+		errorMessage: null,
+		retryCount: 0,
+		inputMode: "path",
+	},
+];
+
+let ingestionSequence = 2;
+let ingestionTasks: IngestionTaskRecord[] = cloneIngestionTasks(INGESTION_SEEDS);
+
 function cloneItems(items: readonly AuditCheckItem[]): AuditCheckItem[] {
 	return items.map((item) => ({
 		...item,
@@ -467,6 +535,84 @@ function cloneBrowserChunks(
 			imageRefs: cloneBrowserImageRefs(item.metadata.imageRefs),
 		},
 	}));
+}
+
+function cloneIngestionTasks(
+	items: readonly IngestionTaskRecord[],
+): IngestionTaskRecord[] {
+	return items.map((item) => ({ ...item }));
+}
+
+function resolveSourcePath(payload: StartIngestionInput): {
+	sourcePath: string;
+	inputMode: "path" | "upload";
+	collection: string;
+} {
+	const collection = payload.collection?.trim() || DEFAULT_INGESTION_COLLECTION;
+	const sourcePath = payload.sourcePath?.trim();
+	if (sourcePath) {
+		return {
+			sourcePath,
+			inputMode: "path",
+			collection,
+		};
+	}
+
+	const fileName = payload.fileName?.trim();
+	if (fileName) {
+		return {
+			sourcePath: `/data/documents/${collection}/${fileName}`,
+			inputMode: "upload",
+			collection,
+		};
+	}
+
+	throw new Error("sourcePath or fileName is required");
+}
+
+function advanceTaskProgress(task: IngestionTaskRecord, nowIso: string): IngestionTaskRecord {
+	if (task.status === "done" || task.status === "failed") {
+		return task;
+	}
+
+	const next: IngestionTaskRecord = { ...task };
+	next.updatedAt = nowIso;
+
+	if (next.status === "queued") {
+		next.status = "running";
+		next.progressPercent = Math.max(8, next.progressPercent);
+		return next;
+	}
+
+	const shouldFailThisRun =
+		next.retryCount === 0 && next.sourcePath.toLowerCase().includes("fail");
+	const increment = Math.max(10, 18 - next.retryCount * 3);
+	const progressed = Math.min(100, next.progressPercent + increment);
+
+	if (shouldFailThisRun && progressed >= 70) {
+		next.status = "failed";
+		next.progressPercent = progressed;
+		next.errorMessage = INGESTION_FAILURE_HINT;
+		return next;
+	}
+
+	next.progressPercent = progressed;
+	next.errorMessage = null;
+	if (progressed >= 100) {
+		next.status = "done";
+	}
+
+	return next;
+}
+
+function tickIngestionTasks(): void {
+	const nowIso = new Date().toISOString();
+	ingestionTasks = ingestionTasks.map((task) => advanceTaskProgress(task, nowIso));
+}
+
+export function resetIngestionTaskState(): void {
+	ingestionSequence = 2;
+	ingestionTasks = cloneIngestionTasks(INGESTION_SEEDS);
 }
 
 export async function listAuditReports(): Promise<AuditReportSummary[]> {
@@ -528,4 +674,66 @@ export async function getBrowserDocumentDetail(
 		summary: { ...detail.summary },
 		chunks: cloneBrowserChunks(detail.chunks),
 	};
+}
+
+export async function listIngestionTasks(): Promise<IngestionTaskRecord[]> {
+	tickIngestionTasks();
+	return cloneIngestionTasks(ingestionTasks).sort(
+		(left, right) => Date.parse(right.startedAt) - Date.parse(left.startedAt),
+	);
+}
+
+export async function startIngestion(
+	payload: StartIngestionInput,
+): Promise<IngestionTaskRecord> {
+	const normalized = resolveSourcePath(payload);
+	ingestionSequence += 1;
+
+	const nowIso = new Date().toISOString();
+	const task: IngestionTaskRecord = {
+		taskId: `ing-task-${String(ingestionSequence).padStart(3, "0")}`,
+		sourcePath: normalized.sourcePath,
+		collection: normalized.collection,
+		status: "queued",
+		progressPercent: 0,
+		startedAt: nowIso,
+		updatedAt: nowIso,
+		errorMessage: null,
+		retryCount: 0,
+		inputMode: normalized.inputMode,
+	};
+
+	ingestionTasks = [task, ...ingestionTasks];
+	return { ...task };
+}
+
+export async function retryTask(taskId: string): Promise<IngestionTaskRecord> {
+	const normalizedTaskId = taskId.trim();
+	const index = ingestionTasks.findIndex((item) => item.taskId === normalizedTaskId);
+	if (index < 0) {
+		throw new Error(`Unknown task: ${taskId}`);
+	}
+
+	const current = ingestionTasks[index];
+	if (current.status !== "failed") {
+		throw new Error(`Task is not failed: ${taskId}`);
+	}
+
+	const nowIso = new Date().toISOString();
+	const retried: IngestionTaskRecord = {
+		...current,
+		status: "running",
+		progressPercent: Math.max(18, current.progressPercent - 26),
+		updatedAt: nowIso,
+		errorMessage: null,
+		retryCount: current.retryCount + 1,
+	};
+
+	ingestionTasks = [
+		...ingestionTasks.slice(0, index),
+		retried,
+		...ingestionTasks.slice(index + 1),
+	];
+
+	return { ...retried };
 }

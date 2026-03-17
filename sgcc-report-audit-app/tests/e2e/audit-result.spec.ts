@@ -115,6 +115,32 @@ test.describe("dashboard skeleton smoke - audit and core pages", () => {
 		await expect(page.locator("[data-testid^='browser-doc-']")).toHaveCount(1);
 	});
 
+	test("menu jump renders ingestion manager and supports start plus retry flow", async ({ page }) => {
+		await page.goto("/audit-results");
+		await page.getByRole("link", { name: "Ingestion管理" }).click();
+
+		await expect(page).toHaveURL(/\/ingestion-manager$/);
+		await expect(page.getByRole("heading", { name: "摄取管理" })).toBeVisible();
+		await expect(page.locator(".page-title")).toHaveText("Ingestion管理");
+
+		await page
+			.locator("[data-testid='ingestion-path-input']")
+			.fill("/data/documents/sgcc-default/c6-e2e-path-report.pdf");
+		await page.locator("[data-testid='ingestion-start-button']").click();
+
+		await expect(page.locator("[data-testid='ingestion-last-submission']")).toContainText(
+			"c6-e2e-path-report.pdf",
+		);
+		await expect(page.locator("[data-testid='ingestion-task-list']")).toContainText(
+			"c6-e2e-path-report.pdf",
+		);
+
+		await page.locator("[data-testid='ingestion-retry-ing-task-legacy-failed']").click();
+		await expect(
+			page.locator("[data-testid='ingestion-status-ing-task-legacy-failed']"),
+		).toContainText(/运行中|完成/);
+	});
+
 	test("menu jump renders evaluation skeleton", async ({ page }) => {
 		await page.goto("/audit-results");
 		await page.getByRole("link", { name: "评估面板" }).click();

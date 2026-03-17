@@ -1,5 +1,6 @@
 import { reactive, readonly } from "vue";
 
+import type { IngestionTaskRecord } from "../api/documents";
 import type { OverviewStats } from "../types";
 
 type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -21,7 +22,21 @@ export type AppState = PersistedAppState & {
 	isOverviewLoading: boolean;
 	overviewErrorMessage: string | null;
 	overviewRefreshedAtIso: string | null;
+	ingestionTasks: IngestionTaskRecord[];
+	isIngestionLoading: boolean;
+	ingestionErrorMessage: string | null;
+	ingestionRefreshedAtIso: string | null;
 };
+
+function cloneIngestionTask(task: IngestionTaskRecord): IngestionTaskRecord {
+	return { ...task };
+}
+
+function cloneIngestionTasks(
+	tasks: readonly IngestionTaskRecord[],
+): IngestionTaskRecord[] {
+	return tasks.map((task) => cloneIngestionTask(task));
+}
 
 const DEFAULT_PERSISTED_STATE: PersistedAppState = {
 	sidebarCollapsed: false,
@@ -94,6 +109,10 @@ export function createAppStore() {
 		isOverviewLoading: false,
 		overviewErrorMessage: null,
 		overviewRefreshedAtIso: null,
+		ingestionTasks: [],
+		isIngestionLoading: false,
+		ingestionErrorMessage: null,
+		ingestionRefreshedAtIso: null,
 	});
 
 	function applyPersistedState(nextState: PersistedAppState): void {
@@ -174,6 +193,35 @@ export function createAppStore() {
 		state.overviewErrorMessage = message;
 	}
 
+	function setIngestionTasks(tasks: IngestionTaskRecord[]): void {
+		state.ingestionTasks = cloneIngestionTasks(tasks);
+		state.ingestionErrorMessage = null;
+		state.ingestionRefreshedAtIso = new Date().toISOString();
+	}
+
+	function upsertIngestionTask(task: IngestionTaskRecord): void {
+		const normalized = cloneIngestionTask(task);
+		const index = state.ingestionTasks.findIndex((item) => item.taskId === task.taskId);
+		if (index < 0) {
+			state.ingestionTasks = [normalized, ...state.ingestionTasks];
+		} else {
+			state.ingestionTasks = [
+				...state.ingestionTasks.slice(0, index),
+				normalized,
+				...state.ingestionTasks.slice(index + 1),
+			];
+		}
+		state.ingestionRefreshedAtIso = new Date().toISOString();
+	}
+
+	function setIngestionLoading(loading: boolean): void {
+		state.isIngestionLoading = loading;
+	}
+
+	function setIngestionErrorMessage(message: string | null): void {
+		state.ingestionErrorMessage = message;
+	}
+
 	function reset(): void {
 		applyPersistedState(DEFAULT_PERSISTED_STATE);
 		state.refreshedAtIso = new Date().toISOString();
@@ -181,6 +229,10 @@ export function createAppStore() {
 		state.isOverviewLoading = false;
 		state.overviewErrorMessage = null;
 		state.overviewRefreshedAtIso = null;
+		state.ingestionTasks = [];
+		state.isIngestionLoading = false;
+		state.ingestionErrorMessage = null;
+		state.ingestionRefreshedAtIso = null;
 		storage.removeItem(STORAGE_KEY);
 	}
 
@@ -198,6 +250,10 @@ export function createAppStore() {
 		setOverviewStats,
 		setOverviewLoading,
 		setOverviewErrorMessage,
+		setIngestionTasks,
+		upsertIngestionTask,
+		setIngestionLoading,
+		setIngestionErrorMessage,
 		reset,
 	};
 }

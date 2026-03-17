@@ -1,11 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   getBrowserDocumentDetail,
   listBrowserDocuments,
+  listIngestionTasks,
+  resetIngestionTaskState,
+  retryTask,
+  startIngestion,
 } from "../documents";
 
 describe("documents api - data browser contracts", () => {
+  beforeEach(() => {
+    resetIngestionTaskState();
+  });
+
   it("lists browser documents in descending ingestedAt order", async () => {
     const docs = await listBrowserDocuments();
 
@@ -50,6 +58,37 @@ describe("documents api - data browser contracts", () => {
   it("throws for unknown browser document id", async () => {
     await expect(getBrowserDocumentDetail("unknown-doc-id")).rejects.toThrow(
       "Unknown document",
+    );
+  });
+
+  it("starts an ingestion task from source path and keeps it queryable", async () => {
+    const created = await startIngestion({
+      sourcePath: "/data/documents/sgcc-default/new-c6-source.pdf",
+      collection: "sgcc-default",
+    });
+
+    expect(created.taskId).toContain("ing-task-");
+    expect(created.status).toBe("queued");
+    expect(created.sourcePath).toContain("new-c6-source.pdf");
+
+    const tasks = await listIngestionTasks();
+    expect(tasks.some((task) => task.taskId === created.taskId)).toBe(true);
+  });
+
+  it("retries failed ingestion task into running state", async () => {
+    const tasks = await listIngestionTasks();
+    const failed = tasks.find((task) => task.status === "failed");
+    expect(failed).toBeDefined();
+
+    const retried = await retryTask(failed!.taskId);
+    expect(retried.status).toBe("running");
+    expect(retried.retryCount).toBeGreaterThanOrEqual(1);
+    expect(retried.errorMessage).toBeNull();
+  });
+
+  it("rejects startIngestion without source path or upload file name", async () => {
+    await expect(startIngestion({ collection: "sgcc-default" })).rejects.toThrow(
+      "sourcePath or fileName is required",
     );
   });
 });
