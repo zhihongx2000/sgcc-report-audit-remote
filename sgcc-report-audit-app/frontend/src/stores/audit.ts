@@ -1,5 +1,7 @@
 import { reactive, readonly } from "vue";
 
+import type { AuditReportSummary } from "../api/documents";
+
 export type AuditCheckStatus = "pass" | "fail" | "review";
 export type AuditSortField = "title" | "updatedAt" | "status";
 export type SortOrder = "asc" | "desc";
@@ -27,6 +29,8 @@ export type AuditFilter = {
 
 export type AuditState = {
 	selectedReportId: string | null;
+	reports: AuditReportSummary[];
+	itemsByReportId: Record<string, AuditCheckItem[]>;
 	items: AuditCheckItem[];
 	filter: AuditFilter;
 	sortField: AuditSortField;
@@ -120,6 +124,8 @@ export function renderCheckItems(state: RenderCheckItemsInput): AuditCheckItem[]
 export function createAuditStore() {
 	const state = reactive<AuditState>({
 		selectedReportId: null,
+		reports: [],
+		itemsByReportId: {},
 		items: [],
 		filter: { ...DEFAULT_FILTER },
 		sortField: "updatedAt",
@@ -129,15 +135,40 @@ export function createAuditStore() {
 		refreshedAtIso: null,
 	});
 
+	function cloneItems(items: readonly AuditCheckItem[]): AuditCheckItem[] {
+		return items.map((item) => ({
+			...item,
+			evidence: item.evidence.map((entry) => ({ ...entry })),
+		}));
+	}
+
 	function setSelectedReportId(reportId: string | null): void {
 		state.selectedReportId = reportId;
 	}
 
+	function setReports(reports: AuditReportSummary[]): void {
+		state.reports = reports.map((report) => ({ ...report }));
+	}
+
+	function setReportItems(reportId: string, items: AuditCheckItem[]): void {
+		state.itemsByReportId[reportId] = cloneItems(items);
+		if (state.selectedReportId === reportId) {
+			state.items = cloneItems(state.itemsByReportId[reportId]);
+			state.refreshedAtIso = new Date().toISOString();
+		}
+	}
+
+	function selectReport(reportId: string): void {
+		state.selectedReportId = reportId;
+		state.items = cloneItems(state.itemsByReportId[reportId] ?? []);
+		state.refreshedAtIso = new Date().toISOString();
+	}
+
 	function setItems(items: AuditCheckItem[]): void {
-		state.items = items.map((item) => ({
-			...item,
-			evidence: item.evidence.map((entry) => ({ ...entry })),
-		}));
+		state.items = cloneItems(items);
+		if (state.selectedReportId) {
+			state.itemsByReportId[state.selectedReportId] = cloneItems(items);
+		}
 		state.refreshedAtIso = new Date().toISOString();
 	}
 
@@ -181,6 +212,8 @@ export function createAuditStore() {
 	// Refresh strategy: audit data is in-memory only and reset on page reload.
 	function reset(): void {
 		state.selectedReportId = null;
+		state.reports = [];
+		state.itemsByReportId = {};
 		state.items = [];
 		state.filter = { ...DEFAULT_FILTER };
 		state.sortField = "updatedAt";
@@ -193,6 +226,9 @@ export function createAuditStore() {
 	return {
 		state: readonly(state),
 		setSelectedReportId,
+		setReports,
+		setReportItems,
+		selectReport,
 		setItems,
 		upsertItem,
 		setStatusFilter,

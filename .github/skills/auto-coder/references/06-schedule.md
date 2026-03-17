@@ -36,14 +36,14 @@ Task selection algorithm:
 
 ## Current Snapshot
 
-Generated at: `2026-03-17 19:00:51`
-Overall: `13/118` completed (`11%`)
+Generated at: `2026-03-17 19:11:41`
+Overall: `14/118` completed (`12%`)
 
 | Phase | Total | Done | In Progress | Not Started | Progress |
 | ----- | ----- | ---- | ----------- | ----------- | -------- |
 | A | 5 | 5 | 0 | 0 | 100% |
 | B | 7 | 7 | 0 | 0 | 100% |
-| C | 10 | 1 | 0 | 9 | 10% |
+| C | 10 | 2 | 0 | 8 | 20% |
 | D | 11 | 0 | 0 | 11 | 0% |
 | E | 16 | 0 | 0 | 16 | 0% |
 | F | 11 | 0 | 0 | 11 | 0% |
@@ -55,9 +55,9 @@ Overall: `13/118` completed (`11%`)
 
 ## Task Cursor
 
-- Last completed: `C1` 审查结果列表与 20 项卡片
+- Last completed: `C2` 报告目录与详情联动
 - In progress: `none`
-- Selected task (auto): `C2 (报告目录与详情联动)`
+- Selected task (auto): `C3 (证据跳转与文档定位组件)`
 - Selection reason: `first [ ] task in section order`
 
 ## Re-sync

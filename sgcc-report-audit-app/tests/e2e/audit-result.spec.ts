@@ -19,6 +19,22 @@ test.describe("dashboard skeleton smoke - audit and core pages", () => {
 		await expect(tableRows).toHaveCount(3);
 	});
 
+	test("report tree selection updates right-side details", async ({ page }) => {
+		await page.goto("/audit-results");
+
+		await expect(page.locator("[data-testid='report-meta-id']")).toContainText(
+			"report-20260317-001",
+		);
+		await expect(page.locator("[data-testid='status-fail-count']")).toHaveText("3");
+
+		await page.locator("[data-testid='report-node-report-20260317-002']").click();
+
+		await expect(page.locator("[data-testid='report-meta-id']")).toContainText(
+			"report-20260317-002",
+		);
+		await expect(page.locator("[data-testid='status-fail-count']")).toHaveText("1");
+	});
+
 	test("menu jump renders overview skeleton", async ({ page }) => {
 		await page.goto("/audit-results");
 		await page.getByRole("link", { name: "系统总览" }).click();

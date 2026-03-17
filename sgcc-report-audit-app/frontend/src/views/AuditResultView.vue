@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
 
+import {
+  getAuditReportDetail,
+  listAuditReports,
+  type AuditReportStatus,
+} from "../api/documents";
 import CheckItemTable from "../components/audit/CheckItemTable.vue";
 import {
   renderCheckItems,
-  type AuditCheckItem,
   type AuditCheckStatus,
   type AuditSortField,
   type SortOrder,
@@ -36,12 +40,16 @@ const sortOptions: SortOption[] = [
   { label: "按审查项名称", value: "title" },
 ];
 
-const reportMeta = {
-  reportId: "report-20260317-001",
-  reportName: "华东区域风光储并网电能质量评估报告",
-  collection: "sgcc-default",
-  updatedAt: "2026-03-17T17:24:00.000Z",
+const reportStatusText: Record<AuditReportStatus, string> = {
+  completed: "已完成",
+  running: "进行中",
 };
+
+const activeReport = computed(() =>
+  store.state.reports.find((report) => report.reportId === store.state.selectedReportId) ??
+    store.state.reports[0] ??
+    null,
+);
 
 const statusFilter = computed({
   get: () => store.state.filter.status,
@@ -85,182 +93,292 @@ const statusStats = computed(() => {
   return totals;
 });
 
-function createMockItems(): AuditCheckItem[] {
-  const titles = [
-    "评估单位资质",
-    "报告审批签章",
-    "评估依据完整性",
-    "用户接入信息",
-    "用户设备参数",
-    "用户干扰源特性",
-    "原始提资资料",
-    "电网设备信息",
-    "电网容量信息",
-    "评估指标覆盖",
-    "指标限值选取",
-    "背景测试数据",
-    "背景与计算叠加",
-    "仿真模型与截图",
-    "评估考核点",
-    "系统运行方式",
-    "计算结果说明",
-    "评估结论一致性",
-    "治理建议有效性",
-    "监测建议完整性",
-  ];
-
-  const statusPattern: AuditCheckStatus[] = [
-    "pass",
-    "pass",
-    "review",
-    "pass",
-    "review",
-    "pass",
-    "fail",
-    "pass",
-    "review",
-    "pass",
-    "pass",
-    "review",
-    "fail",
-    "review",
-    "pass",
-    "pass",
-    "review",
-    "pass",
-    "fail",
-    "review",
-  ];
-
-  const reasonByStatus: Record<AuditCheckStatus, string> = {
-    pass: "已在报告正文中给出明确说明，结论与证据一致。",
-    review: "当前证据可支持初步判定，建议补充原始附件后复核。",
-    fail: "缺少关键约束或结果不一致，无法满足审查要求。",
-  };
-
-  const baseTime = Date.parse(reportMeta.updatedAt);
-
-  return titles.map((title, index) => {
-    const checkNumber = index + 1;
-    const status = statusPattern[index];
-    const checkId = `check-${String(checkNumber).padStart(2, "0")}`;
-    return {
-      id: checkId,
-      title,
-      status,
-      reason: `${reasonByStatus[status]}（第 ${checkNumber} 项）`,
-      evidence: [
-        {
-          id: `${checkId}-e1`,
-          label: "正文段落",
-          source: `chapter-${Math.ceil(checkNumber / 3)}.${(checkNumber % 3) + 1}`,
-          page: checkNumber + 2,
-        },
-        {
-          id: `${checkId}-e2`,
-          label: "附录截图",
-          source: `appendix-${String((checkNumber % 5) + 1).padStart(2, "0")}`,
-          page: checkNumber + 8,
-        },
-      ],
-      updatedAt: new Date(baseTime - index * 90_000).toISOString(),
-    };
-  });
-}
-
 function toggleSortOrder(): void {
   const nextOrder: SortOrder = store.state.sortOrder === "desc" ? "asc" : "desc";
   store.setSort(store.state.sortField, nextOrder);
 }
 
+async function selectReport(reportId: string): Promise<void> {
+  if (store.state.selectedReportId === reportId) {
+    return;
+  }
+
+  try {
+    store.setLoading(true);
+    if (!store.state.itemsByReportId[reportId]) {
+      const detail = await getAuditReportDetail(reportId);
+      store.setReportItems(reportId, detail.items);
+    }
+    store.selectReport(reportId);
+    store.setErrorMessage(null);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "报告详情加载失败";
+    store.setErrorMessage(message);
+  } finally {
+    store.setLoading(false);
+  }
+}
+
+async function bootstrapReportDirectory(): Promise<void> {
+  try {
+    store.setLoading(true);
+    const reports = await listAuditReports();
+    store.setReports(reports);
+
+    if (reports.length > 0) {
+      const firstReport = reports[0];
+      const detail = await getAuditReportDetail(firstReport.reportId);
+      store.setReportItems(firstReport.reportId, detail.items);
+      store.selectReport(firstReport.reportId);
+    }
+
+    store.setErrorMessage(null);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "报告目录加载失败";
+    store.setErrorMessage(message);
+  } finally {
+    store.setLoading(false);
+  }
+}
+
 onMounted(() => {
-  if (store.state.items.length === 0) {
-    store.setSelectedReportId(reportMeta.reportId);
-    store.setItems(createMockItems());
+  if (store.state.reports.length === 0) {
+    void bootstrapReportDirectory();
   }
 });
 </script>
 
 <template>
   <section data-page-id="audit-results" class="audit-result-view">
-    <header class="hero">
-      <div>
-        <p class="hero-kicker">Report Intelligence</p>
-        <h1 class="hero-title">20 项审查结果矩阵</h1>
-        <p class="hero-subtitle">
-          集中展示每一项判定结果、判定说明与证据定位，并支持状态筛选、关键词检索和排序。
+    <div class="workspace-grid">
+      <aside class="report-tree" aria-label="报告目录">
+        <header class="report-tree-head">
+          <p class="tree-kicker">Report Directory</p>
+          <h2>报告目录</h2>
+          <p>切换进行中/已完成报告，右侧详情实时联动。</p>
+        </header>
+
+        <ul class="report-list" data-testid="report-list">
+          <li v-for="report in store.state.reports" :key="report.reportId">
+            <button
+              type="button"
+              class="report-node"
+              :class="{ 'is-active': report.reportId === store.state.selectedReportId }"
+              :data-testid="`report-node-${report.reportId}`"
+              @click="void selectReport(report.reportId)"
+            >
+              <span class="node-title">{{ report.reportName }}</span>
+              <span class="node-meta">{{ report.reportId }} · {{ report.collection }}</span>
+              <span
+                class="node-status"
+                :class="`node-status--${report.status}`"
+              >
+                {{ reportStatusText[report.status] }}
+              </span>
+            </button>
+          </li>
+        </ul>
+      </aside>
+
+      <div class="result-panel">
+        <header class="hero">
+          <div>
+            <p class="hero-kicker">Report Intelligence</p>
+            <h1 class="hero-title">20 项审查结果矩阵</h1>
+            <p class="hero-subtitle">
+              集中展示每一项判定结果、判定说明与证据定位，并支持状态筛选、关键词检索和排序。
+            </p>
+          </div>
+          <div class="hero-meta" v-if="activeReport">
+            <p class="meta-name">{{ activeReport.reportName }}</p>
+            <p class="meta-id" data-testid="report-meta-id">
+              {{ activeReport.reportId }} · {{ activeReport.collection }}
+            </p>
+          </div>
+        </header>
+
+        <p v-if="store.state.errorMessage" class="error-banner" role="alert">
+          {{ store.state.errorMessage }}
         </p>
+
+        <div class="stats-grid" data-testid="status-summary">
+          <article class="stat-card stat-card--pass">
+            <p>满足</p>
+            <strong>{{ statusStats.pass }}</strong>
+          </article>
+          <article class="stat-card stat-card--review">
+            <p>需复核</p>
+            <strong>{{ statusStats.review }}</strong>
+          </article>
+          <article class="stat-card stat-card--fail">
+            <p>不满足</p>
+            <strong data-testid="status-fail-count">{{ statusStats.fail }}</strong>
+          </article>
+          <article class="stat-card stat-card--total">
+            <p>当前命中</p>
+            <strong>{{ displayedItems.length }}/20</strong>
+          </article>
+        </div>
+
+        <div class="control-panel">
+          <label>
+            <span>状态筛选</span>
+            <select v-model="statusFilter" data-testid="status-filter">
+              <option v-for="option in statusOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            <span>排序字段</span>
+            <select v-model="sortField" data-testid="sort-field">
+              <option v-for="option in sortOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
+
+          <button class="order-toggle" type="button" @click="toggleSortOrder" data-testid="sort-order-toggle">
+            {{ sortOrderLabel }}
+          </button>
+
+          <label class="keyword-field">
+            <span>关键词</span>
+            <input
+              v-model="keywordFilter"
+              type="text"
+              placeholder="输入审查项、判定说明、证据来源"
+              data-testid="keyword-filter"
+            />
+          </label>
+        </div>
+
+        <CheckItemTable :items="displayedItems" />
       </div>
-      <div class="hero-meta">
-        <p class="meta-name">{{ reportMeta.reportName }}</p>
-        <p class="meta-id">{{ reportMeta.reportId }} · {{ reportMeta.collection }}</p>
-      </div>
-    </header>
-
-    <div class="stats-grid" data-testid="status-summary">
-      <article class="stat-card stat-card--pass">
-        <p>满足</p>
-        <strong>{{ statusStats.pass }}</strong>
-      </article>
-      <article class="stat-card stat-card--review">
-        <p>需复核</p>
-        <strong>{{ statusStats.review }}</strong>
-      </article>
-      <article class="stat-card stat-card--fail">
-        <p>不满足</p>
-        <strong>{{ statusStats.fail }}</strong>
-      </article>
-      <article class="stat-card stat-card--total">
-        <p>当前命中</p>
-        <strong>{{ displayedItems.length }}/20</strong>
-      </article>
     </div>
-
-    <div class="control-panel">
-      <label>
-        <span>状态筛选</span>
-        <select v-model="statusFilter" data-testid="status-filter">
-          <option v-for="option in statusOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-      </label>
-
-      <label>
-        <span>排序字段</span>
-        <select v-model="sortField" data-testid="sort-field">
-          <option v-for="option in sortOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-      </label>
-
-      <button class="order-toggle" type="button" @click="toggleSortOrder" data-testid="sort-order-toggle">
-        {{ sortOrderLabel }}
-      </button>
-
-      <label class="keyword-field">
-        <span>关键词</span>
-        <input
-          v-model="keywordFilter"
-          type="text"
-          placeholder="输入审查项、判定说明、证据来源"
-          data-testid="keyword-filter"
-        />
-      </label>
-    </div>
-
-    <CheckItemTable :items="displayedItems" />
   </section>
 </template>
 
 <style scoped>
 .audit-result-view {
+  display: block;
+}
+
+.workspace-grid {
   display: grid;
-  gap: 1rem;
+  grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
+  gap: 0.86rem;
+}
+
+.report-tree {
+  border: 1px solid #d4e3f6;
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(71, 117, 179, 0.2), transparent 44%),
+    linear-gradient(180deg, #f4f9ff 0%, #ecf4ff 100%);
+  padding: 0.78rem;
+  box-shadow: var(--shadow-soft);
+  animation: page-enter var(--duration-slow) var(--ease-standard);
+}
+
+.report-tree-head h2 {
+  margin: 0.16rem 0 0;
+  font-size: 1.04rem;
+  color: #1f3f63;
+}
+
+.tree-kicker {
+  margin: 0;
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #4c72a0;
+}
+
+.report-tree-head p {
+  margin: 0.22rem 0 0;
+  font-size: var(--text-sm);
+  color: #54708f;
+}
+
+.report-list {
+  list-style: none;
+  margin: 0.72rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.48rem;
+}
+
+.report-node {
+  width: 100%;
+  display: grid;
+  gap: 0.2rem;
+  text-align: left;
+  padding: 0.58rem 0.6rem;
+  border-radius: 0.64rem;
+  border: 1px solid #c4d9f4;
+  background: linear-gradient(180deg, #ffffff 0%, #f6faff 100%);
+  cursor: pointer;
+  transition:
+    transform var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.report-node:hover {
+  border-color: #8eb5e3;
+  transform: translateX(2px);
+  box-shadow: 0 8px 18px rgba(40, 79, 132, 0.12);
+}
+
+.report-node.is-active {
+  border-color: #548fce;
+  box-shadow:
+    inset 3px 0 0 #4a83bf,
+    0 10px 20px rgba(38, 79, 132, 0.16);
+}
+
+.node-title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: #244361;
+  line-height: 1.4;
+}
+
+.node-meta {
+  font-size: var(--text-xs);
+  color: #607e9f;
+}
+
+.node-status {
+  justify-self: start;
+  padding: 0.14rem 0.46rem;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  border: 1px solid transparent;
+}
+
+.node-status--completed {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 12%, white);
+  border-color: color-mix(in srgb, var(--color-success) 32%, white);
+}
+
+.node-status--running {
+  color: #7a6100;
+  background: #fff5d8;
+  border-color: #f1d17b;
+}
+
+.result-panel {
+  display: grid;
+  gap: 0.9rem;
   background:
     radial-gradient(circle at 95% 0%, rgba(47, 95, 159, 0.16), transparent 32%),
     linear-gradient(180deg, #f7fbff 0%, #ffffff 40%);
+  padding: 0.04rem;
 }
 
 .hero {
@@ -306,6 +424,16 @@ onMounted(() => {
   display: grid;
   align-content: center;
   gap: 0.26rem;
+}
+
+.error-banner {
+  margin: 0;
+  padding: 0.48rem 0.6rem;
+  border-radius: 0.56rem;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 35%, white);
+  background: color-mix(in srgb, var(--color-danger) 10%, white);
+  color: #9f3545;
+  font-size: var(--text-sm);
 }
 
 .meta-name {
@@ -436,6 +564,10 @@ onMounted(() => {
 }
 
 @media (max-width: 1100px) {
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
   .hero {
     grid-template-columns: 1fr;
   }
@@ -454,7 +586,7 @@ onMounted(() => {
 }
 
 @media (max-width: 720px) {
-  .audit-result-view {
+  .result-panel {
     gap: 0.72rem;
   }
 

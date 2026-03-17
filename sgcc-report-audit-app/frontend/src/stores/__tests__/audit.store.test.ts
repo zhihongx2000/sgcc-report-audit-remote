@@ -113,4 +113,42 @@ describe("audit store", () => {
     expect(byQuery).toHaveLength(1);
     expect(byQuery[0].id).toBe("check-01");
   });
+
+  it("switches report details when selectReport is called", () => {
+    store.setReports([
+      {
+        reportId: "report-001",
+        reportName: "报告 A",
+        collection: "default",
+        status: "completed",
+        updatedAt: "2026-03-17T18:20:00.000Z",
+        checkCount: 20,
+      },
+      {
+        reportId: "report-002",
+        reportName: "报告 B",
+        collection: "default",
+        status: "running",
+        updatedAt: "2026-03-17T18:25:00.000Z",
+        checkCount: 20,
+      },
+    ]);
+
+    store.setReportItems("report-001", [baseItem]);
+    store.setReportItems("report-002", [
+      {
+        ...baseItem,
+        id: "check-02",
+        title: "报告 B 的审查项",
+        status: "review",
+      },
+    ]);
+
+    store.selectReport("report-002");
+
+    expect(store.state.selectedReportId).toBe("report-002");
+    expect(store.state.items).toHaveLength(1);
+    expect(store.state.items[0].id).toBe("check-02");
+    expect(store.state.items[0].title).toContain("报告 B");
+  });
 });
