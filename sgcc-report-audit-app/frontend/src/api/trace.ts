@@ -4,6 +4,211 @@ import type { ApiEnvelope, OverviewStats } from "../types";
 
 type TraceApiEnvelope<T> = ApiEnvelope<T>;
 
+export type TraceStageStatus = "success" | "warning" | "failed" | "running";
+
+export type IngestionTraceStage = {
+	key: string;
+	name: string;
+	durationMs: number;
+	status: TraceStageStatus;
+	method: string;
+	provider: string;
+	inputCount: number;
+	outputCount: number;
+	detail: string;
+};
+
+export type IngestionTraceRecord = {
+	id: string;
+	kind: "ingestion";
+	sourcePath: string;
+	collection: string;
+	startedAt: string;
+	finishedAt: string;
+	totalDurationMs: number;
+	status: TraceStageStatus;
+	summary: string;
+	chunkCount: number;
+	imageCount: number;
+	skippedCount: number;
+	failedCount: number;
+	stages: IngestionTraceStage[];
+};
+
+const DEFAULT_INGESTION_STAGE_ORDER = [
+	"load",
+	"split",
+	"transform",
+	"embed",
+	"upsert",
+] as const;
+
+const STAGE_NAME_FALLBACK_MAP: Record<string, string> = {
+	load: "Load",
+	split: "Split",
+	transform: "Transform",
+	embed: "Embed",
+	upsert: "Upsert",
+};
+
+const STAGE_METHOD_FALLBACK_MAP: Record<string, string> = {
+	load: "markitdown",
+	split: "recursive-character",
+	transform: "chunk-refine + metadata-enrich + image-caption",
+	embed: "dense + sparse",
+	upsert: "pgvector + bm25",
+};
+
+const STAGE_PROVIDER_FALLBACK_MAP: Record<string, string> = {
+	load: "local",
+	split: "langchain",
+	transform: "qwen-vl",
+	embed: "openai",
+	upsert: "postgresql",
+};
+
+type UnknownRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): UnknownRecord | null {
+	if (!value || typeof value !== "object") {
+		return null;
+	}
+
+	return value as UnknownRecord;
+}
+
+function asString(value: unknown, fallback: string): string {
+	if (typeof value === "string" && value.trim().length > 0) {
+		return value;
+	}
+
+	return fallback;
+}
+
+function asNumber(value: unknown, fallback: number): number {
+	if (typeof value === "number" && Number.isFinite(value)) {
+		return value;
+	}
+
+	return fallback;
+}
+
+function asStatus(value: unknown, fallback: TraceStageStatus): TraceStageStatus {
+	if (
+		value === "success" ||
+		value === "warning" ||
+		value === "failed" ||
+		value === "running"
+	) {
+		return value;
+	}
+
+	return fallback;
+}
+
+function stageOrderIndex(key: string): number {
+	const index = DEFAULT_INGESTION_STAGE_ORDER.findIndex((item) => item === key);
+	return index < 0 ? DEFAULT_INGESTION_STAGE_ORDER.length + 1 : index;
+}
+
+function normalizeStage(
+	rawStage: unknown,
+	index: number,
+	traceId: string,
+): IngestionTraceStage {
+	const record = asRecord(rawStage);
+	const rawName = asString(record?.name, `stage-${index + 1}`);
+	const key = asString(record?.key, rawName.toLowerCase());
+	const durationMs = Math.max(1, asNumber(record?.durationMs, 1));
+
+	return {
+		key,
+		name: asString(record?.name, STAGE_NAME_FALLBACK_MAP[key] ?? rawName),
+		durationMs,
+		status: asStatus(record?.status, "success"),
+		method: asString(record?.method, STAGE_METHOD_FALLBACK_MAP[key] ?? "-"),
+		provider: asString(record?.provider, STAGE_PROVIDER_FALLBACK_MAP[key] ?? "-"),
+		inputCount: asNumber(record?.inputCount, 0),
+		outputCount: asNumber(record?.outputCount, 0),
+		detail: asString(
+			record?.detail,
+			`${traceId} ${key} stage detail not provided by backend; fallback mock detail is used.`,
+		),
+	};
+}
+
+function normalizeStages(rawStages: unknown, traceId: string): IngestionTraceStage[] {
+	const source = Array.isArray(rawStages) ? rawStages : [];
+	const normalized = source.map((stage, index) => normalizeStage(stage, index, traceId));
+
+	if (normalized.length === 0) {
+		return DEFAULT_INGESTION_STAGE_ORDER.map((key, index) =>
+			normalizeStage(
+				{
+					key,
+					name: STAGE_NAME_FALLBACK_MAP[key],
+					durationMs: 1,
+					status: "running",
+					method: STAGE_METHOD_FALLBACK_MAP[key],
+					provider: STAGE_PROVIDER_FALLBACK_MAP[key],
+					inputCount: index === 0 ? 1 : 0,
+					outputCount: 0,
+					detail: "No stage details available.",
+				},
+				index,
+				traceId,
+			),
+		);
+	}
+
+	return [...normalized].sort((a, b) => stageOrderIndex(a.key) - stageOrderIndex(b.key));
+}
+
+function normalizeTrace(rawTrace: unknown, index: number): IngestionTraceRecord {
+	const record = asRecord(rawTrace);
+	const id = asString(record?.id, `ing-trace-${String(index + 1).padStart(3, "0")}`);
+	const startedAt = asString(record?.startedAt, new Date(0).toISOString());
+	const stages = normalizeStages(record?.stages, id);
+	const totalDurationMs = Math.max(
+		1,
+		asNumber(
+			record?.totalDurationMs,
+			stages.reduce((sum, stage) => sum + stage.durationMs, 0),
+		),
+	);
+
+	return {
+		id,
+		kind: "ingestion",
+		sourcePath: asString(record?.sourcePath, "unknown-source"),
+		collection: asString(record?.collection, "default"),
+		startedAt,
+		finishedAt: asString(record?.finishedAt, startedAt),
+		totalDurationMs,
+		status: asStatus(record?.status, "success"),
+		summary: asString(record?.summary, "ingestion trace"),
+		chunkCount: Math.max(0, asNumber(record?.chunkCount, 0)),
+		imageCount: Math.max(0, asNumber(record?.imageCount, 0)),
+		skippedCount: Math.max(0, asNumber(record?.skippedCount, 0)),
+		failedCount: Math.max(0, asNumber(record?.failedCount, 0)),
+		stages,
+	};
+}
+
+function sortByStartedAtDesc(records: IngestionTraceRecord[]): IngestionTraceRecord[] {
+	return [...records].sort(
+		(a, b) =>
+			new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
+	);
+}
+
+export function normalizeIngestionTracePayload(payload: unknown): IngestionTraceRecord[] {
+	const traces = Array.isArray(payload) ? payload : [];
+	const normalized = traces.map((trace, index) => normalizeTrace(trace, index));
+ 
+	return sortByStartedAtDesc(normalized);
+}
+
 export type LoadOverviewStatsOptions = {
 	client?: ReturnType<typeof createHttpClient>;
 	baseUrl?: string;
@@ -11,6 +216,8 @@ export type LoadOverviewStatsOptions = {
 	fallbackToMockOnError?: boolean;
 	fetcher?: HttpClientOptions["fetcher"];
 };
+
+export type LoadIngestionTraceOptions = LoadOverviewStatsOptions;
 
 function resolveClient(options: LoadOverviewStatsOptions): ReturnType<typeof createHttpClient> {
 	if (options.client) {
@@ -40,4 +247,21 @@ export async function loadOverviewStats(
 	}
 
 	return response.data;
+}
+
+export async function loadIngestionTrace(
+	options: LoadIngestionTraceOptions = {},
+): Promise<IngestionTraceRecord[]> {
+	const client = resolveClient(options);
+	const response = await client.get<TraceApiEnvelope<unknown>>(
+		"/traces/ingestion",
+		undefined,
+		"ingestionTraces",
+	);
+
+	if (!response.success) {
+		throw new Error(response.message ?? "摄取 Trace 数据加载失败");
+	}
+
+	return normalizeIngestionTracePayload(response.data);
 }

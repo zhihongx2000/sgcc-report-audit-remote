@@ -50,18 +50,31 @@ export type OverviewStats = {
 
 export type TraceKind = "ingestion" | "query";
 export type TraceStage = {
+	key?: string;
 	name: string;
 	durationMs: number;
 	status: "success" | "warning" | "failed" | "running";
+	method?: string;
+	provider?: string;
+	inputCount?: number;
+	outputCount?: number;
+	detail?: string;
 };
 
 export type TraceRecord = {
 	id: string;
 	kind: TraceKind;
+	sourcePath?: string;
+	collection?: string;
 	startedAt: string;
+	finishedAt?: string;
 	totalDurationMs: number;
 	status: "success" | "warning" | "failed" | "running";
 	summary: string;
+	chunkCount?: number;
+	imageCount?: number;
+	skippedCount?: number;
+	failedCount?: number;
 	stages: TraceStage[];
 };
 
