@@ -37,8 +37,22 @@ test.describe("dashboard skeleton smoke - trace pages", () => {
 		await page.getByRole("link", { name: "Query追踪" }).click();
 
 		await expect(page).toHaveURL(/\/query-traces$/);
-		await expect(page.getByRole("heading", { name: "查询 Trace" })).toBeVisible();
+		await expect(page.getByRole("heading", { name: "查询追踪" })).toBeVisible();
 		await expect(page.locator("section[data-page-id='query-traces']")).toBeVisible();
 		await expect(page.locator(".page-title")).toHaveText("Query追踪");
+
+		await expect(page.locator("[data-testid='query-trace-history']")).toBeVisible();
+		await expect(page.locator("[data-testid^='query-trace-item-']").first()).toBeVisible();
+		await expect(page.locator("[data-testid='waterfall-chart']")).toBeVisible();
+
+		await page.locator("[data-testid='waterfall-stage-rerank']").click();
+		await expect(page.locator("[data-testid='query-stage-drawer']")).toBeVisible();
+		await expect(page.locator("[data-testid='query-stage-method']")).toContainText(
+			"cross-encoder",
+		);
+
+		await expect(page.locator("[data-testid='query-trace-detail-panel']")).toBeVisible();
+		await expect(page.locator("[data-testid='query-topk-table']")).toBeVisible();
+		await expect(page.locator("[data-testid^='query-topk-row-']")).toHaveCount(3);
 	});
 });

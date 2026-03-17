@@ -61,9 +61,19 @@ export type TraceStage = {
 	detail?: string;
 };
 
+export type QueryTraceCandidate = {
+	docId: string;
+	title: string;
+	source: string;
+	rank: number;
+	score: number;
+	snippet?: string;
+};
+
 export type TraceRecord = {
 	id: string;
 	kind: TraceKind;
+	queryText?: string;
 	sourcePath?: string;
 	collection?: string;
 	startedAt: string;
@@ -71,10 +81,17 @@ export type TraceRecord = {
 	totalDurationMs: number;
 	status: "success" | "warning" | "failed" | "running";
 	summary: string;
+	rerankBackend?: string;
+	fallbackTriggered?: boolean;
 	chunkCount?: number;
 	imageCount?: number;
 	skippedCount?: number;
 	failedCount?: number;
+	denseCandidates?: QueryTraceCandidate[];
+	sparseCandidates?: QueryTraceCandidate[];
+	fusionCandidates?: QueryTraceCandidate[];
+	rerankCandidates?: QueryTraceCandidate[];
+	topKResults?: QueryTraceCandidate[];
 	stages: TraceStage[];
 };
 

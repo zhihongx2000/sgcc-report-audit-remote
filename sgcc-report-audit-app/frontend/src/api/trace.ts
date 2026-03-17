@@ -35,12 +35,51 @@ export type IngestionTraceRecord = {
 	stages: IngestionTraceStage[];
 };
 
+export type QueryTraceStage = IngestionTraceStage;
+
+export type QueryTraceCandidate = {
+	docId: string;
+	title: string;
+	source: string;
+	rank: number;
+	score: number;
+	snippet: string;
+};
+
+export type QueryTraceRecord = {
+	id: string;
+	kind: "query";
+	queryText: string;
+	collection: string;
+	startedAt: string;
+	finishedAt: string;
+	totalDurationMs: number;
+	status: TraceStageStatus;
+	summary: string;
+	rerankBackend: string;
+	fallbackTriggered: boolean;
+	stages: QueryTraceStage[];
+	denseCandidates: QueryTraceCandidate[];
+	sparseCandidates: QueryTraceCandidate[];
+	fusionCandidates: QueryTraceCandidate[];
+	rerankCandidates: QueryTraceCandidate[];
+	topKResults: QueryTraceCandidate[];
+};
+
 const DEFAULT_INGESTION_STAGE_ORDER = [
 	"load",
 	"split",
 	"transform",
 	"embed",
 	"upsert",
+] as const;
+
+const DEFAULT_QUERY_STAGE_ORDER = [
+	"query_processing",
+	"dense",
+	"sparse",
+	"fusion",
+	"rerank",
 ] as const;
 
 const STAGE_NAME_FALLBACK_MAP: Record<string, string> = {
@@ -65,6 +104,30 @@ const STAGE_PROVIDER_FALLBACK_MAP: Record<string, string> = {
 	transform: "qwen-vl",
 	embed: "openai",
 	upsert: "postgresql",
+};
+
+const QUERY_STAGE_NAME_FALLBACK_MAP: Record<string, string> = {
+	query_processing: "Query Processing",
+	dense: "Dense Retrieval",
+	sparse: "Sparse Retrieval",
+	fusion: "Fusion",
+	rerank: "Rerank",
+};
+
+const QUERY_STAGE_METHOD_FALLBACK_MAP: Record<string, string> = {
+	query_processing: "keyword-extractor + query-expander",
+	dense: "cosine similarity",
+	sparse: "bm25",
+	fusion: "rrf",
+	rerank: "cross-encoder",
+};
+
+const QUERY_STAGE_PROVIDER_FALLBACK_MAP: Record<string, string> = {
+	query_processing: "rag-core",
+	dense: "openai-embedding-3-small",
+	sparse: "bm25-index",
+	fusion: "rrf-engine",
+	rerank: "bge-reranker-v2-m3",
 };
 
 type UnknownRecord = Record<string, unknown>;
@@ -93,6 +156,14 @@ function asNumber(value: unknown, fallback: number): number {
 	return fallback;
 }
 
+function asBoolean(value: unknown, fallback: boolean): boolean {
+	if (typeof value === "boolean") {
+		return value;
+	}
+
+	return fallback;
+}
+
 function asStatus(value: unknown, fallback: TraceStageStatus): TraceStageStatus {
 	if (
 		value === "success" ||
@@ -109,6 +180,11 @@ function asStatus(value: unknown, fallback: TraceStageStatus): TraceStageStatus 
 function stageOrderIndex(key: string): number {
 	const index = DEFAULT_INGESTION_STAGE_ORDER.findIndex((item) => item === key);
 	return index < 0 ? DEFAULT_INGESTION_STAGE_ORDER.length + 1 : index;
+}
+
+function queryStageOrderIndex(key: string): number {
+	const index = DEFAULT_QUERY_STAGE_ORDER.findIndex((item) => item === key);
+	return index < 0 ? DEFAULT_QUERY_STAGE_ORDER.length + 1 : index;
 }
 
 function normalizeStage(
@@ -195,6 +271,145 @@ function normalizeTrace(rawTrace: unknown, index: number): IngestionTraceRecord 
 	};
 }
 
+function normalizeQueryStage(
+	rawStage: unknown,
+	index: number,
+	traceId: string,
+): QueryTraceStage {
+	const record = asRecord(rawStage);
+	const rawName = asString(record?.name, `stage-${index + 1}`);
+	const key = asString(record?.key, rawName.toLowerCase().replace(/\s+/g, "_"));
+	const durationMs = Math.max(1, asNumber(record?.durationMs, 1));
+
+	return {
+		key,
+		name: asString(record?.name, QUERY_STAGE_NAME_FALLBACK_MAP[key] ?? rawName),
+		durationMs,
+		status: asStatus(record?.status, "success"),
+		method: asString(record?.method, QUERY_STAGE_METHOD_FALLBACK_MAP[key] ?? "-"),
+		provider: asString(
+			record?.provider,
+			QUERY_STAGE_PROVIDER_FALLBACK_MAP[key] ?? "-",
+		),
+		inputCount: asNumber(record?.inputCount, 0),
+		outputCount: asNumber(record?.outputCount, 0),
+		detail: asString(
+			record?.detail,
+			`${traceId} ${key} stage detail not provided by backend; fallback mock detail is used.`,
+		),
+	};
+}
+
+function normalizeQueryStages(rawStages: unknown, traceId: string): QueryTraceStage[] {
+	const source = Array.isArray(rawStages) ? rawStages : [];
+	const normalized = source.map((stage, index) =>
+		normalizeQueryStage(stage, index, traceId),
+	);
+
+	if (normalized.length === 0) {
+		return DEFAULT_QUERY_STAGE_ORDER.map((key, index) =>
+			normalizeQueryStage(
+				{
+					key,
+					name: QUERY_STAGE_NAME_FALLBACK_MAP[key],
+					durationMs: 1,
+					status: "running",
+					method: QUERY_STAGE_METHOD_FALLBACK_MAP[key],
+					provider: QUERY_STAGE_PROVIDER_FALLBACK_MAP[key],
+					inputCount: index === 0 ? 1 : 0,
+					outputCount: 0,
+					detail: "No stage details available.",
+				},
+				index,
+				traceId,
+			),
+		);
+	}
+
+	return [...normalized].sort(
+		(a, b) => queryStageOrderIndex(a.key) - queryStageOrderIndex(b.key),
+	);
+}
+
+function normalizeCandidate(
+	rawCandidate: unknown,
+	index: number,
+	prefix: string,
+): QueryTraceCandidate {
+	const record = asRecord(rawCandidate);
+	const fallbackId = `${prefix}-${String(index + 1).padStart(2, "0")}`;
+
+	return {
+		docId: asString(record?.docId ?? record?.id, fallbackId),
+		title: asString(record?.title, "Untitled chunk"),
+		source: asString(record?.source, "unknown-source"),
+		rank: Math.max(1, asNumber(record?.rank, index + 1)),
+		score: asNumber(record?.score, 0),
+		snippet: asString(record?.snippet, ""),
+	};
+}
+
+function normalizeCandidates(
+	rawCandidates: unknown,
+	prefix: string,
+): QueryTraceCandidate[] {
+	const source = Array.isArray(rawCandidates) ? rawCandidates : [];
+	const normalized = source.map((item, index) =>
+		normalizeCandidate(item, index, prefix),
+	);
+
+	return [...normalized].sort((a, b) => a.rank - b.rank);
+}
+
+function normalizeQueryTrace(rawTrace: unknown, index: number): QueryTraceRecord {
+	const record = asRecord(rawTrace);
+	const id = asString(record?.id, `qry-trace-${String(index + 1).padStart(3, "0")}`);
+	const startedAt = asString(record?.startedAt, new Date(0).toISOString());
+	const stages = normalizeQueryStages(record?.stages, id);
+	const denseCandidates = normalizeCandidates(record?.denseCandidates, "dense");
+	const sparseCandidates = normalizeCandidates(record?.sparseCandidates, "sparse");
+	const fusionCandidates = normalizeCandidates(record?.fusionCandidates, "fusion");
+	const rerankCandidates = normalizeCandidates(record?.rerankCandidates, "rerank");
+	const topKSource =
+		record?.topKResults ?? record?.topK ?? record?.finalResults ?? [];
+	const normalizedTopK = normalizeCandidates(topKSource, "topk");
+	const topKResults =
+		normalizedTopK.length > 0
+			? normalizedTopK
+			: (rerankCandidates.length > 0 ? rerankCandidates : fusionCandidates).slice(0, 5);
+
+	const totalDurationMs = Math.max(
+		1,
+		asNumber(
+			record?.totalDurationMs,
+			stages.reduce((sum, stage) => sum + stage.durationMs, 0),
+		),
+	);
+
+	return {
+		id,
+		kind: "query",
+		queryText: asString(record?.queryText ?? record?.query, "unknown query"),
+		collection: asString(record?.collection, "default"),
+		startedAt,
+		finishedAt: asString(record?.finishedAt, startedAt),
+		totalDurationMs,
+		status: asStatus(record?.status, "success"),
+		summary: asString(record?.summary, "query trace"),
+		rerankBackend: asString(record?.rerankBackend ?? record?.reranker, "none"),
+		fallbackTriggered: asBoolean(
+			record?.fallbackTriggered ?? record?.rerankFallback,
+			false,
+		),
+		stages,
+		denseCandidates,
+		sparseCandidates,
+		fusionCandidates,
+		rerankCandidates,
+		topKResults,
+	};
+}
+
 function sortByStartedAtDesc(records: IngestionTraceRecord[]): IngestionTraceRecord[] {
 	return [...records].sort(
 		(a, b) =>
@@ -209,6 +424,13 @@ export function normalizeIngestionTracePayload(payload: unknown): IngestionTrace
 	return sortByStartedAtDesc(normalized);
 }
 
+export function normalizeQueryTracePayload(payload: unknown): QueryTraceRecord[] {
+	const traces = Array.isArray(payload) ? payload : [];
+	const normalized = traces.map((trace, index) => normalizeQueryTrace(trace, index));
+
+	return sortByStartedAtDesc(normalized);
+}
+
 export type LoadOverviewStatsOptions = {
 	client?: ReturnType<typeof createHttpClient>;
 	baseUrl?: string;
@@ -218,6 +440,7 @@ export type LoadOverviewStatsOptions = {
 };
 
 export type LoadIngestionTraceOptions = LoadOverviewStatsOptions;
+export type LoadQueryTraceOptions = LoadOverviewStatsOptions;
 
 function resolveClient(options: LoadOverviewStatsOptions): ReturnType<typeof createHttpClient> {
 	if (options.client) {
@@ -264,4 +487,21 @@ export async function loadIngestionTrace(
 	}
 
 	return normalizeIngestionTracePayload(response.data);
+}
+
+export async function loadQueryTrace(
+	options: LoadQueryTraceOptions = {},
+): Promise<QueryTraceRecord[]> {
+	const client = resolveClient(options);
+	const response = await client.get<TraceApiEnvelope<unknown>>(
+		"/traces/query",
+		undefined,
+		"queryTraces",
+	);
+
+	if (!response.success) {
+		throw new Error(response.message ?? "查询 Trace 数据加载失败");
+	}
+
+	return normalizeQueryTracePayload(response.data);
 }

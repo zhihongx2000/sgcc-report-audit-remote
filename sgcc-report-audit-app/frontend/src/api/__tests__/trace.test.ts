@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { loadIngestionTrace, loadOverviewStats } from "../trace";
+import { loadIngestionTrace, loadOverviewStats, loadQueryTrace } from "../trace";
 
 describe("trace api", () => {
 	it("loads overview stats in mock mode", async () => {
@@ -188,5 +188,67 @@ describe("trace api", () => {
 		expect(fetcher).toHaveBeenCalledTimes(1);
 		expect(traces[0].id).toBe("trace-custom-001");
 		expect(traces[0].stages[0].method).toBe("markitdown");
+	});
+
+	it("loads query traces in mock mode with dense-sparse-rerank payload", async () => {
+		const traces = await loadQueryTrace({ useMock: true });
+
+		expect(traces.length).toBeGreaterThan(0);
+		expect(traces[0].stages.map((stage) => stage.key)).toEqual([
+			"query_processing",
+			"dense",
+			"sparse",
+			"fusion",
+			"rerank",
+		]);
+		expect(traces[0].denseCandidates.length).toBeGreaterThan(0);
+		expect(traces[0].sparseCandidates.length).toBeGreaterThan(0);
+		expect(traces[0].topKResults[0].docId).toBe("doc-grid-stability");
+	});
+
+	it("loads query traces in live mode and falls back top-k from rerank", async () => {
+		const fetcher = vi.fn(async () => ({
+			ok: true,
+			status: 200,
+			statusText: "OK",
+			json: async () => ({
+				success: true,
+				data: [
+					{
+						id: "query-custom-001",
+						kind: "query",
+						queryText: "what is grid stability",
+						collection: "default",
+						startedAt: "2026-03-17T10:00:00.000Z",
+						totalDurationMs: 3000,
+						status: "success",
+						summary: "ok",
+						stages: [
+							{ key: "dense", name: "Dense Retrieval", durationMs: 900, status: "success" },
+						],
+						rerankCandidates: [
+							{
+								docId: "doc-1",
+								title: "Doc 1",
+								source: "sample#1",
+								rank: 1,
+								score: 0.91,
+							},
+						],
+					},
+				],
+			}),
+		}));
+
+		const traces = await loadQueryTrace({
+			useMock: false,
+			fallbackToMockOnError: false,
+			fetcher,
+		});
+
+		expect(fetcher).toHaveBeenCalledTimes(1);
+		expect(traces[0].id).toBe("query-custom-001");
+		expect(traces[0].topKResults).toHaveLength(1);
+		expect(traces[0].topKResults[0].docId).toBe("doc-1");
 	});
 });
