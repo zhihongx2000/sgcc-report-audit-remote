@@ -11,6 +11,9 @@ export type AuditEvidence = {
 	label: string;
 	source: string;
 	page: number | null;
+	paragraphAnchor: string | null;
+	imageHint: string | null;
+	excerpt: string;
 };
 
 export type AuditCheckItem = {
@@ -97,7 +100,9 @@ function filterByQuery(items: readonly AuditCheckItem[], query: string): AuditCh
 	return items.filter((item) => {
 		const reason = item.reason.toLowerCase();
 		const evidenceText = item.evidence
-			.map((entry) => `${entry.label} ${entry.source}`.toLowerCase())
+			.map((entry) =>
+				`${entry.label} ${entry.source} ${entry.paragraphAnchor ?? ""} ${entry.excerpt}`.toLowerCase(),
+			)
 			.join(" ");
 		return (
 			item.id.toLowerCase().includes(trimmed) ||

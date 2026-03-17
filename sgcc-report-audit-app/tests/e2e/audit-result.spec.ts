@@ -19,6 +19,39 @@ test.describe("dashboard skeleton smoke - audit and core pages", () => {
 		await expect(tableRows).toHaveCount(3);
 	});
 
+	test("evidence drawer supports page anchor and image jump", async ({ page }) => {
+		await page.goto("/audit-results");
+
+		const trigger = page.locator(
+			"[data-testid='evidence-trigger-check-01-check-01-e2-report-20260317-001']",
+		);
+		await trigger.click();
+
+		const drawer = page.locator("[data-testid='evidence-drawer']");
+		await expect(drawer).toBeVisible();
+		await expect(drawer).toContainText("check-01");
+
+		await page.locator("[data-testid='evidence-jump-page']").click();
+		await expect(page.locator("[data-testid='evidence-jump-notice']")).toContainText(
+			"页码",
+		);
+
+		await page.locator("[data-testid='evidence-jump-anchor']").click();
+		await expect(page.locator("[data-testid='evidence-jump-notice']")).toContainText(
+			"段落锚点",
+		);
+
+		await page.locator("[data-testid='evidence-jump-image']").click();
+		await expect(page.locator("[data-testid='evidence-jump-notice']")).toContainText(
+			"图片缩略图",
+		);
+
+		await expect(page.locator("[data-testid='check-row-check-01']")).toHaveClass(
+			/check-row--active/,
+		);
+		await expect(trigger).toHaveClass(/is-active/);
+	});
+
 	test("report tree selection updates right-side details", async ({ page }) => {
 		await page.goto("/audit-results");
 

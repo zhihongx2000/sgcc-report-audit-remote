@@ -1,9 +1,21 @@
 <script setup lang="ts">
-import type { AuditCheckItem } from "../../stores/audit";
+import type { AuditCheckItem, AuditEvidence } from "../../stores/audit";
 import StatusTag from "../common/StatusTag.vue";
 
-defineProps<{
+export type EvidenceOpenPayload = {
+	checkId: string;
+	checkTitle: string;
+	evidence: AuditEvidence;
+};
+
+const props = defineProps<{
 	items: AuditCheckItem[];
+	activeCheckId?: string | null;
+	activeEvidenceKey?: string | null;
+}>();
+
+const emit = defineEmits<{
+	openEvidence: [payload: EvidenceOpenPayload];
 }>();
 
 function formatCheckId(id: string): string {
@@ -24,6 +36,18 @@ function formatTime(iso: string): string {
 		minute: "2-digit",
 	});
 }
+
+function buildEvidenceKey(checkId: string, evidenceId: string): string {
+	return `${checkId}:${evidenceId}`;
+}
+
+function emitOpenEvidence(item: AuditCheckItem, evidence: AuditEvidence): void {
+	emit("openEvidence", {
+		checkId: item.id,
+		checkTitle: item.title,
+		evidence,
+	});
+}
 </script>
 
 <template>
@@ -39,7 +63,13 @@ function formatTime(iso: string): string {
 				</tr>
 			</thead>
 			<tbody>
-				<tr v-for="item in items" :key="item.id" class="check-row" :data-testid="`check-row-${item.id}`">
+				<tr
+					v-for="item in items"
+					:key="item.id"
+					class="check-row"
+					:class="{ 'check-row--active': item.id === props.activeCheckId }"
+					:data-testid="`check-row-${item.id}`"
+				>
 					<td>
 						<p class="check-id">#{{ formatCheckId(item.id) }}</p>
 						<p class="check-title">{{ item.title }}</p>
@@ -53,8 +83,24 @@ function formatTime(iso: string): string {
 					<td>
 						<ul class="evidence-list">
 							<li v-for="entry in item.evidence" :key="entry.id" class="evidence-item">
-								<span class="evidence-label">{{ entry.label }}</span>
-								<span class="evidence-meta">{{ entry.source }}<template v-if="entry.page"> · P{{ entry.page }}</template></span>
+								<button
+									type="button"
+									class="evidence-trigger"
+									:class="{
+										'is-active':
+											props.activeEvidenceKey === buildEvidenceKey(item.id, entry.id),
+									}"
+									:data-evidence-key="buildEvidenceKey(item.id, entry.id)"
+									:data-testid="`evidence-trigger-${item.id}-${entry.id}`"
+									@click="emitOpenEvidence(item, entry)"
+								>
+									<span class="evidence-label">{{ entry.label }}</span>
+									<span class="evidence-meta">
+										{{ entry.source }}
+										<template v-if="entry.page"> · P{{ entry.page }}</template>
+										<template v-if="entry.paragraphAnchor"> · {{ entry.paragraphAnchor }}</template>
+									</span>
+								</button>
 							</li>
 						</ul>
 					</td>
@@ -104,6 +150,10 @@ function formatTime(iso: string): string {
 	transition: background-color var(--duration-fast) var(--ease-standard);
 }
 
+.check-row--active {
+	background: color-mix(in srgb, var(--color-accent) 10%, white);
+}
+
 .check-row:hover {
 	background: #f5f9ff;
 }
@@ -138,12 +188,36 @@ function formatTime(iso: string): string {
 }
 
 .evidence-item {
+	list-style: none;
+}
+
+.evidence-trigger {
+	width: 100%;
 	display: grid;
 	gap: 0.06rem;
 	padding: 0.34rem 0.44rem;
 	border-radius: 0.5rem;
 	border: 1px solid #dce8f8;
 	background: #f8fbff;
+	text-align: left;
+	cursor: pointer;
+	transition:
+		border-color var(--duration-fast) var(--ease-standard),
+		box-shadow var(--duration-fast) var(--ease-standard),
+		transform var(--duration-fast) var(--ease-standard);
+}
+
+.evidence-trigger:hover {
+	border-color: #7ea8d9;
+	box-shadow: 0 6px 14px rgba(37, 80, 136, 0.14);
+	transform: translateY(-1px);
+}
+
+.evidence-trigger.is-active {
+	border-color: #2f79c9;
+	box-shadow:
+		inset 2px 0 0 #2f79c9,
+		0 8px 16px rgba(28, 73, 131, 0.2);
 }
 
 .evidence-label {

@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 
 import {
   getAuditReportDetail,
   listAuditReports,
   type AuditReportStatus,
 } from "../api/documents";
+import EvidenceDrawer from "../components/audit/EvidenceDrawer.vue";
 import CheckItemTable from "../components/audit/CheckItemTable.vue";
 import {
+  type AuditEvidence,
   renderCheckItems,
   type AuditCheckStatus,
   type AuditSortField,
@@ -70,6 +72,23 @@ const sortOrderLabel = computed(() =>
   store.state.sortOrder === "desc" ? "降序" : "升序",
 );
 
+type EvidenceSelection = {
+  checkId: string;
+  checkTitle: string;
+  evidence: AuditEvidence;
+};
+
+type EvidenceJumpPayload = {
+  target: "page" | "anchor" | "image";
+  selection: EvidenceSelection;
+};
+
+const evidenceDrawerOpen = ref(false);
+const selectedEvidence = ref<EvidenceSelection | null>(null);
+const activeCheckId = ref<string | null>(null);
+const activeEvidenceKey = ref<string | null>(null);
+const jumpNotice = ref<string | null>(null);
+
 const displayedItems = computed(() =>
   renderCheckItems({
     items: store.state.items,
@@ -98,10 +117,77 @@ function toggleSortOrder(): void {
   store.setSort(store.state.sortField, nextOrder);
 }
 
+function buildEvidenceKey(checkId: string, evidenceId: string): string {
+  return `${checkId}:${evidenceId}`;
+}
+
+function buildJumpNotice(payload: EvidenceJumpPayload): string {
+  if (payload.target === "page") {
+    return `已定位到 ${payload.selection.evidence.source} 的页码 ${payload.selection.evidence.page ?? "未标注"}。`;
+  }
+
+  if (payload.target === "image") {
+    return `已定位到图片缩略图：${payload.selection.evidence.imageHint ?? "附录截图"}。`;
+  }
+
+  return `已定位到段落锚点 ${payload.selection.evidence.paragraphAnchor ?? "未标注"}。`;
+}
+
+async function jumpToAnchor(payload: EvidenceJumpPayload): Promise<void> {
+  activeCheckId.value = payload.selection.checkId;
+  activeEvidenceKey.value = buildEvidenceKey(
+    payload.selection.checkId,
+    payload.selection.evidence.id,
+  );
+  jumpNotice.value = buildJumpNotice(payload);
+
+  await nextTick();
+
+  const row = document.querySelector<HTMLElement>(
+    `[data-testid='check-row-${payload.selection.checkId}']`,
+  );
+  row?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+
+  const trigger = document.querySelector<HTMLElement>(
+    `[data-testid='evidence-trigger-${payload.selection.checkId}-${payload.selection.evidence.id}']`,
+  );
+  trigger?.focus();
+}
+
+function openEvidence(selection: EvidenceSelection): void {
+  selectedEvidence.value = {
+    checkId: selection.checkId,
+    checkTitle: selection.checkTitle,
+    evidence: { ...selection.evidence },
+  };
+  evidenceDrawerOpen.value = true;
+  void jumpToAnchor({
+    target: "anchor",
+    selection,
+  });
+}
+
+function setEvidenceDrawerOpen(value: boolean): void {
+  evidenceDrawerOpen.value = value;
+  if (!value) {
+    jumpNotice.value = null;
+  }
+}
+
+function resetEvidenceFocus(): void {
+  evidenceDrawerOpen.value = false;
+  selectedEvidence.value = null;
+  activeCheckId.value = null;
+  activeEvidenceKey.value = null;
+  jumpNotice.value = null;
+}
+
 async function selectReport(reportId: string): Promise<void> {
   if (store.state.selectedReportId === reportId) {
     return;
   }
+
+  resetEvidenceFocus();
 
   try {
     store.setLoading(true);
@@ -120,6 +206,8 @@ async function selectReport(reportId: string): Promise<void> {
 }
 
 async function bootstrapReportDirectory(): Promise<void> {
+  resetEvidenceFocus();
+
   try {
     store.setLoading(true);
     const reports = await listAuditReports();
@@ -254,7 +342,25 @@ onMounted(() => {
           </label>
         </div>
 
-        <CheckItemTable :items="displayedItems" />
+        <p v-if="jumpNotice" class="jump-notice" data-testid="evidence-jump-notice">
+          {{ jumpNotice }}
+        </p>
+
+        <div class="evidence-layout" :class="{ 'has-drawer': evidenceDrawerOpen && selectedEvidence }">
+          <CheckItemTable
+            :items="displayedItems"
+            :active-check-id="activeCheckId"
+            :active-evidence-key="activeEvidenceKey"
+            @open-evidence="openEvidence"
+          />
+
+          <EvidenceDrawer
+            :open="evidenceDrawerOpen"
+            :selection="selectedEvidence"
+            @update:open="setEvidenceDrawerOpen"
+            @jump="jumpToAnchor"
+          />
+        </div>
       </div>
     </div>
   </section>
@@ -563,6 +669,27 @@ onMounted(() => {
   transform: translateY(-1px);
 }
 
+.jump-notice {
+  margin: 0;
+  padding: 0.5rem 0.64rem;
+  border-radius: 0.58rem;
+  border: 1px solid #b8d4f2;
+  background: linear-gradient(120deg, #f2f8ff 0%, #e9f3ff 100%);
+  color: #2b547f;
+  font-size: var(--text-sm);
+}
+
+.evidence-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.74rem;
+}
+
+.evidence-layout.has-drawer {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  align-items: start;
+}
+
 @media (max-width: 1100px) {
   .workspace-grid {
     grid-template-columns: 1fr;
@@ -582,6 +709,10 @@ onMounted(() => {
 
   .keyword-field {
     grid-column: span 2;
+  }
+
+  .evidence-layout.has-drawer {
+    grid-template-columns: 1fr;
   }
 }
 
