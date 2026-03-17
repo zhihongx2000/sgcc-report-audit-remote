@@ -103,10 +103,28 @@ export type IngestionTask = {
 	startedAt: string;
 };
 
+export type EvaluationMetrics = {
+	hitRate: number;
+	mrr: number;
+	faithfulness: number;
+};
+
+export type EvaluationRunRecord = {
+	runId: string;
+	evaluator: "ragas" | "custom" | "all";
+	dataset: string;
+	status: "success" | "warning" | "failed" | "running";
+	startedAt: string;
+	durationMs: number;
+	metrics: EvaluationMetrics;
+	note: string;
+};
+
 export type FrontendMockDataMap = {
 	auditResult: ApiEnvelope<AuditResult>;
 	overviewStats: ApiEnvelope<OverviewStats>;
 	ingestionTraces: ApiEnvelope<TraceRecord[]>;
 	queryTraces: ApiEnvelope<TraceRecord[]>;
 	ingestionTasks: ApiEnvelope<IngestionTask[]>;
+	evaluationRun: ApiEnvelope<EvaluationRunRecord>;
 };

@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { loadIngestionTrace, loadOverviewStats, loadQueryTrace } from "../trace";
+import {
+	loadIngestionTrace,
+	loadOverviewStats,
+	loadQueryTrace,
+	runEvaluation,
+} from "../trace";
 
 describe("trace api", () => {
 	it("loads overview stats in mock mode", async () => {
@@ -250,5 +255,53 @@ describe("trace api", () => {
 		expect(traces[0].id).toBe("query-custom-001");
 		expect(traces[0].topKResults).toHaveLength(1);
 		expect(traces[0].topKResults[0].docId).toBe("doc-1");
+	});
+
+	it("runs evaluation in mock mode", async () => {
+		const result = await runEvaluation({
+			useMock: true,
+			evaluator: "all",
+			dataset: "golden_set.jsonl",
+		});
+
+		expect(result.runId).toContain("eval-run");
+		expect(result.metrics.hitRate).toBeGreaterThan(0);
+		expect(result.dataset).toBe("golden_set.jsonl");
+	});
+
+	it("runs evaluation in live mode with custom fetcher", async () => {
+		const fetcher = vi.fn(async () => ({
+			ok: true,
+			status: 200,
+			statusText: "OK",
+			json: async () => ({
+				success: true,
+				data: {
+					runId: "eval-live-001",
+					status: "success",
+					startedAt: "2026-03-17T15:00:00.000Z",
+					durationMs: 2200,
+					metrics: {
+						hitRate: 0.91,
+						mrr: 0.79,
+						faithfulness: 0.84,
+					},
+					note: "ok",
+				},
+			}),
+		}));
+
+		const result = await runEvaluation({
+			useMock: false,
+			fallbackToMockOnError: false,
+			fetcher,
+			evaluator: "ragas",
+			dataset: "golden_set-lite.jsonl",
+		});
+
+		expect(fetcher).toHaveBeenCalledTimes(1);
+		expect(result.runId).toBe("eval-live-001");
+		expect(result.evaluator).toBe("ragas");
+		expect(result.dataset).toBe("golden_set-lite.jsonl");
 	});
 });

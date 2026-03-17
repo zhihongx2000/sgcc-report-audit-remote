@@ -1,6 +1,7 @@
 import type {
 	ApiEnvelope,
 	AuditResult,
+	EvaluationRunRecord,
 	FrontendMockDataMap,
 	IngestionTask,
 	OverviewStats,
@@ -574,12 +575,33 @@ export function mockIngestionTasks(): ApiEnvelope<IngestionTask[]> {
 	};
 }
 
+export function mockEvaluationRun(): ApiEnvelope<EvaluationRunRecord> {
+	return {
+		success: true,
+		data: {
+			runId: "eval-run-20260317-001",
+			evaluator: "all",
+			dataset: "golden_set.jsonl",
+			status: "success",
+			startedAt: "2026-03-17T23:28:10.000Z",
+			durationMs: 1820,
+			metrics: {
+				hitRate: 0.86,
+				mrr: 0.74,
+				faithfulness: 0.81,
+			},
+			note: "Ragas + custom evaluators finished with stable score range.",
+		},
+	};
+}
+
 const mockFactoryMap: { [K in MockKey]: () => FrontendMockDataMap[K] } = {
 	auditResult: mockAuditResult,
 	overviewStats: mockOverviewStats,
 	ingestionTraces: mockIngestionTraces,
 	queryTraces: mockQueryTraces,
 	ingestionTasks: mockIngestionTasks,
+	evaluationRun: mockEvaluationRun,
 };
 
 export function getMockData<K extends MockKey>(key: K): FrontendMockDataMap[K] {

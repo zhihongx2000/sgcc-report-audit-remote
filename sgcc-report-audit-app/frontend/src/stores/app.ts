@@ -1,7 +1,7 @@
 import { reactive, readonly } from "vue";
 
 import type { IngestionTaskRecord } from "../api/documents";
-import type { OverviewStats } from "../types";
+import type { EvaluationRunRecord, OverviewStats } from "../types";
 
 type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
@@ -26,6 +26,10 @@ export type AppState = PersistedAppState & {
 	isIngestionLoading: boolean;
 	ingestionErrorMessage: string | null;
 	ingestionRefreshedAtIso: string | null;
+	evaluationEnabled: boolean;
+	evaluationRuns: EvaluationRunRecord[];
+	isEvaluationRunning: boolean;
+	evaluationErrorMessage: string | null;
 };
 
 function cloneIngestionTask(task: IngestionTaskRecord): IngestionTaskRecord {
@@ -36,6 +40,19 @@ function cloneIngestionTasks(
 	tasks: readonly IngestionTaskRecord[],
 ): IngestionTaskRecord[] {
 	return tasks.map((task) => cloneIngestionTask(task));
+}
+
+function cloneEvaluationRun(run: EvaluationRunRecord): EvaluationRunRecord {
+	return {
+		...run,
+		metrics: { ...run.metrics },
+	};
+}
+
+function cloneEvaluationRuns(
+	runs: readonly EvaluationRunRecord[],
+): EvaluationRunRecord[] {
+	return runs.map((run) => cloneEvaluationRun(run));
 }
 
 const DEFAULT_PERSISTED_STATE: PersistedAppState = {
@@ -113,6 +130,10 @@ export function createAppStore() {
 		isIngestionLoading: false,
 		ingestionErrorMessage: null,
 		ingestionRefreshedAtIso: null,
+		evaluationEnabled: false,
+		evaluationRuns: [],
+		isEvaluationRunning: false,
+		evaluationErrorMessage: null,
 	});
 
 	function applyPersistedState(nextState: PersistedAppState): void {
@@ -222,6 +243,31 @@ export function createAppStore() {
 		state.ingestionErrorMessage = message;
 	}
 
+	function setEvaluationEnabled(enabled: boolean): void {
+		state.evaluationEnabled = enabled;
+	}
+
+	function setEvaluationRuns(runs: EvaluationRunRecord[]): void {
+		state.evaluationRuns = cloneEvaluationRuns(runs);
+		state.evaluationErrorMessage = null;
+	}
+
+	function appendEvaluationRun(run: EvaluationRunRecord): void {
+		state.evaluationRuns = [
+			cloneEvaluationRun(run),
+			...cloneEvaluationRuns(state.evaluationRuns),
+		];
+		state.evaluationErrorMessage = null;
+	}
+
+	function setEvaluationRunning(running: boolean): void {
+		state.isEvaluationRunning = running;
+	}
+
+	function setEvaluationErrorMessage(message: string | null): void {
+		state.evaluationErrorMessage = message;
+	}
+
 	function reset(): void {
 		applyPersistedState(DEFAULT_PERSISTED_STATE);
 		state.refreshedAtIso = new Date().toISOString();
@@ -233,6 +279,10 @@ export function createAppStore() {
 		state.isIngestionLoading = false;
 		state.ingestionErrorMessage = null;
 		state.ingestionRefreshedAtIso = null;
+		state.evaluationEnabled = false;
+		state.evaluationRuns = [];
+		state.isEvaluationRunning = false;
+		state.evaluationErrorMessage = null;
 		storage.removeItem(STORAGE_KEY);
 	}
 
@@ -254,6 +304,11 @@ export function createAppStore() {
 		upsertIngestionTask,
 		setIngestionLoading,
 		setIngestionErrorMessage,
+		setEvaluationEnabled,
+		setEvaluationRuns,
+		appendEvaluationRun,
+		setEvaluationRunning,
+		setEvaluationErrorMessage,
 		reset,
 	};
 }

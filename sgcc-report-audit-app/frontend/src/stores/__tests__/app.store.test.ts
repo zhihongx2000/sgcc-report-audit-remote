@@ -100,4 +100,62 @@ describe("app store", () => {
     expect(store.state.ingestionErrorMessage).toBeNull();
     expect(store.state.isIngestionLoading).toBe(false);
   });
+
+  it("toggles evaluation enable state and appends run records", () => {
+    const store = createAppStore();
+
+    expect(store.state.evaluationEnabled).toBe(false);
+
+    store.setEvaluationEnabled(true);
+    expect(store.state.evaluationEnabled).toBe(true);
+
+    store.appendEvaluationRun({
+      runId: "eval-run-seed",
+      evaluator: "all",
+      dataset: "golden_set.jsonl",
+      status: "success",
+      startedAt: "2026-03-17T12:40:00.000Z",
+      durationMs: 1660,
+      metrics: {
+        hitRate: 0.82,
+        mrr: 0.71,
+        faithfulness: 0.79,
+      },
+      note: "ok",
+    });
+
+    expect(store.state.evaluationRuns).toHaveLength(1);
+    expect(store.state.evaluationRuns[0].runId).toBe("eval-run-seed");
+    expect(store.state.evaluationRuns[0].metrics.hitRate).toBe(0.82);
+  });
+
+  it("clears evaluation states on reset", () => {
+    const store = createAppStore();
+    store.setEvaluationEnabled(true);
+    store.setEvaluationRunning(true);
+    store.setEvaluationErrorMessage("eval failed");
+    store.setEvaluationRuns([
+      {
+        runId: "eval-run-reset",
+        evaluator: "custom",
+        dataset: "golden_set-lite.jsonl",
+        status: "warning",
+        startedAt: "2026-03-17T13:00:00.000Z",
+        durationMs: 2300,
+        metrics: {
+          hitRate: 0.7,
+          mrr: 0.61,
+          faithfulness: 0.68,
+        },
+        note: "warning",
+      },
+    ]);
+
+    store.reset();
+
+    expect(store.state.evaluationEnabled).toBe(false);
+    expect(store.state.isEvaluationRunning).toBe(false);
+    expect(store.state.evaluationErrorMessage).toBeNull();
+    expect(store.state.evaluationRuns).toHaveLength(0);
+  });
 });

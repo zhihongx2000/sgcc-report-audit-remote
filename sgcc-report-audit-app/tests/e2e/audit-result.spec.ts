@@ -141,7 +141,7 @@ test.describe("dashboard skeleton smoke - audit and core pages", () => {
 		).toContainText(/运行中|完成/);
 	});
 
-	test("menu jump renders evaluation skeleton", async ({ page }) => {
+	test("menu jump renders evaluation panel and supports enable/run flow", async ({ page }) => {
 		await page.goto("/audit-results");
 		await page.getByRole("link", { name: "评估面板" }).click();
 
@@ -149,5 +149,19 @@ test.describe("dashboard skeleton smoke - audit and core pages", () => {
 		await expect(page.getByRole("heading", { name: "评估面板" })).toBeVisible();
 		await expect(page.locator("section[data-page-id='evaluation']")).toBeVisible();
 		await expect(page.locator(".page-title")).toHaveText("评估面板");
+
+		await expect(page.locator("[data-testid='evaluation-disabled-state']")).toBeVisible();
+		await page.locator("[data-testid='evaluation-enable-button']").click();
+
+		await expect(page.locator("[data-testid='evaluation-enabled-panel']")).toBeVisible();
+		await page.locator("[data-testid='evaluation-evaluator-select']").selectOption("ragas");
+		await page
+			.locator("[data-testid='evaluation-dataset-select']")
+			.selectOption("golden_set-lite.jsonl");
+		await page.locator("[data-testid='evaluation-run-button']").click();
+
+		await expect(page.locator("[data-testid='evaluation-metrics-table']")).toBeVisible();
+		await expect(page.locator("[data-testid^='evaluation-run-']").first()).toBeVisible();
+		await expect(page.locator("[data-testid='evaluation-trend-placeholder']")).toBeVisible();
 	});
 });

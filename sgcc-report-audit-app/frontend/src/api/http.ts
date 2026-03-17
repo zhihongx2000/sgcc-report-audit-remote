@@ -92,6 +92,9 @@ function inferMockKey(path: string): MockKey | null {
 	if (path.includes("ingestion") && path.includes("task")) {
 		return "ingestionTasks";
 	}
+	if (path.includes("evaluation")) {
+		return "evaluationRun";
+	}
 
 	return null;
 }

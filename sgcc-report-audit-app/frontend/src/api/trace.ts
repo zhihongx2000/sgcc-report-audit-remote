@@ -1,6 +1,10 @@
 import { createHttpClient, type HttpClientOptions } from "./http";
 
-import type { ApiEnvelope, OverviewStats } from "../types";
+import type {
+	ApiEnvelope,
+	EvaluationRunRecord,
+	OverviewStats,
+} from "../types";
 
 type TraceApiEnvelope<T> = ApiEnvelope<T>;
 
@@ -441,6 +445,10 @@ export type LoadOverviewStatsOptions = {
 
 export type LoadIngestionTraceOptions = LoadOverviewStatsOptions;
 export type LoadQueryTraceOptions = LoadOverviewStatsOptions;
+export type RunEvaluationOptions = LoadOverviewStatsOptions & {
+	evaluator?: "ragas" | "custom" | "all";
+	dataset?: string;
+};
 
 function resolveClient(options: LoadOverviewStatsOptions): ReturnType<typeof createHttpClient> {
 	if (options.client) {
@@ -504,4 +512,66 @@ export async function loadQueryTrace(
 	}
 
 	return normalizeQueryTracePayload(response.data);
+}
+
+function normalizeEvaluationRunPayload(
+	payload: unknown,
+	fallback: {
+		evaluator: "ragas" | "custom" | "all";
+		dataset: string;
+	},
+): EvaluationRunRecord {
+	const record = asRecord(payload);
+	const status = asStatus(record?.status, "success");
+	const durationMs = Math.max(1, asNumber(record?.durationMs, 1));
+
+	const evaluatorRaw = asString(record?.evaluator, fallback.evaluator);
+	const evaluator: "ragas" | "custom" | "all" =
+		evaluatorRaw === "ragas" || evaluatorRaw === "custom" || evaluatorRaw === "all"
+			? evaluatorRaw
+			: fallback.evaluator;
+
+	return {
+		runId: asString(record?.runId, `eval-run-${Date.now()}`),
+		evaluator,
+		dataset: asString(record?.dataset, fallback.dataset),
+		status,
+		startedAt: asString(record?.startedAt, new Date().toISOString()),
+		durationMs,
+		metrics: {
+			hitRate: asNumber(asRecord(record?.metrics)?.hitRate, 0),
+			mrr: asNumber(asRecord(record?.metrics)?.mrr, 0),
+			faithfulness: asNumber(asRecord(record?.metrics)?.faithfulness, 0),
+		},
+		note: asString(
+			record?.note,
+			status === "failed" ? "Evaluation failed." : "Evaluation completed.",
+		),
+	};
+}
+
+export async function runEvaluation(
+	options: RunEvaluationOptions = {},
+): Promise<EvaluationRunRecord> {
+	const client = resolveClient(options);
+	const evaluator = options.evaluator ?? "all";
+	const dataset = options.dataset ?? "golden_set.jsonl";
+
+	const response = await client.post<TraceApiEnvelope<unknown>>(
+		"/evaluation/run",
+		{
+			evaluator,
+			dataset,
+		},
+		"evaluationRun",
+	);
+
+	if (!response.success) {
+		throw new Error(response.message ?? "评估运行失败");
+	}
+
+	return normalizeEvaluationRunPayload(response.data, {
+		evaluator,
+		dataset,
+	});
 }
