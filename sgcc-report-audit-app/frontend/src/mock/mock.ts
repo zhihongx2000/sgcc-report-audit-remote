@@ -52,6 +52,16 @@ export function mockOverviewStats(): ApiEnvelope<OverviewStats> {
 					value: "openai / text-embedding-3-small / 1536",
 					detail: "provider + model + dim",
 				},
+				{
+					title: "VectorStore",
+					value: "pgvector / rag_chunks / cosine",
+					detail: "backend + table + metric",
+				},
+				{
+					title: "Reranker",
+					value: "cross_encoder / bge-reranker-v2-m3",
+					detail: "backend + model",
+				},
 			],
 			collectionStats: [
 				{ name: "default", documents: 42, chunks: 1896, images: 117 },
@@ -67,6 +77,11 @@ export function mockOverviewStats(): ApiEnvelope<OverviewStats> {
 					title: "最近 Query Trace",
 					value: "2026-03-16 15:08:11",
 					sub: "总耗时 1.42s",
+				},
+				{
+					title: "Trace 存储状态",
+					value: "PostgreSQL + JSONL 镜像",
+					sub: "obs_traces / obs_trace_stages",
 				},
 			],
 		},

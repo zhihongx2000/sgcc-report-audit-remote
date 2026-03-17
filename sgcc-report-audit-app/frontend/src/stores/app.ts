@@ -1,5 +1,7 @@
 import { reactive, readonly } from "vue";
 
+import type { OverviewStats } from "../types";
+
 type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 const STORAGE_KEY = "sgcc-dashboard:app-store:v1";
@@ -15,6 +17,10 @@ type PersistedAppState = {
 
 export type AppState = PersistedAppState & {
 	refreshedAtIso: string | null;
+	overviewStats: OverviewStats | null;
+	isOverviewLoading: boolean;
+	overviewErrorMessage: string | null;
+	overviewRefreshedAtIso: string | null;
 };
 
 const DEFAULT_PERSISTED_STATE: PersistedAppState = {
@@ -84,6 +90,10 @@ export function createAppStore() {
 	const state = reactive<AppState>({
 		...DEFAULT_PERSISTED_STATE,
 		refreshedAtIso: null,
+		overviewStats: null,
+		isOverviewLoading: false,
+		overviewErrorMessage: null,
+		overviewRefreshedAtIso: null,
 	});
 
 	function applyPersistedState(nextState: PersistedAppState): void {
@@ -146,9 +156,31 @@ export function createAppStore() {
 		persistState();
 	}
 
+	function setOverviewStats(stats: OverviewStats): void {
+		state.overviewStats = {
+			componentCards: stats.componentCards.map((card) => ({ ...card })),
+			collectionStats: stats.collectionStats.map((collection) => ({ ...collection })),
+			healthMetrics: stats.healthMetrics.map((metric) => ({ ...metric })),
+		};
+		state.overviewErrorMessage = null;
+		state.overviewRefreshedAtIso = new Date().toISOString();
+	}
+
+	function setOverviewLoading(loading: boolean): void {
+		state.isOverviewLoading = loading;
+	}
+
+	function setOverviewErrorMessage(message: string | null): void {
+		state.overviewErrorMessage = message;
+	}
+
 	function reset(): void {
 		applyPersistedState(DEFAULT_PERSISTED_STATE);
 		state.refreshedAtIso = new Date().toISOString();
+		state.overviewStats = null;
+		state.isOverviewLoading = false;
+		state.overviewErrorMessage = null;
+		state.overviewRefreshedAtIso = null;
 		storage.removeItem(STORAGE_KEY);
 	}
 
@@ -163,6 +195,9 @@ export function createAppStore() {
 		setAutoRefresh,
 		setRefreshIntervalSec,
 		setLastVisitedRoute,
+		setOverviewStats,
+		setOverviewLoading,
+		setOverviewErrorMessage,
 		reset,
 	};
 }

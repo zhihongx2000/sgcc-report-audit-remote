@@ -76,6 +76,16 @@ test.describe("dashboard skeleton smoke - audit and core pages", () => {
 		await expect(page.getByRole("heading", { name: "系统总览" })).toBeVisible();
 		await expect(page.locator("section[data-page-id='overview']")).toBeVisible();
 		await expect(page.locator(".page-title")).toHaveText("系统总览");
+		await expect(page.locator("[data-testid='overview-provider-model']")).toContainText(
+			"/",
+		);
+		await expect(page.locator("[data-testid='overview-vectorstore']")).toContainText(
+			"pgvector",
+		);
+		await expect(page.locator("[data-testid='overview-health-line']")).not.toHaveText(
+			"",
+		);
+		await expect(page.locator("[data-testid='overview-config-llm']")).toBeVisible();
 	});
 
 	test("menu jump renders data browser skeleton", async ({ page }) => {
