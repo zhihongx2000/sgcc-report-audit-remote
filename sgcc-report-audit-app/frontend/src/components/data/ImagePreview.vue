@@ -4,6 +4,7 @@ const props = defineProps<{
 	source: string;
 	page: number | null;
 	active?: boolean;
+	testId?: string;
 }>();
 
 const emit = defineEmits<{
@@ -20,7 +21,7 @@ function openImageEvidence(): void {
 		type="button"
 		class="image-preview"
 		:class="{ 'is-active': props.active }"
-		data-testid="evidence-image-preview"
+		:data-testid="props.testId ?? 'evidence-image-preview'"
 		@click="openImageEvidence"
 	>
 		<span class="thumb-plate" aria-hidden="true">

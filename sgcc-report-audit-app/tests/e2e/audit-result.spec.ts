@@ -88,14 +88,31 @@ test.describe("dashboard skeleton smoke - audit and core pages", () => {
 		await expect(page.locator("[data-testid='overview-config-llm']")).toBeVisible();
 	});
 
-	test("menu jump renders data browser skeleton", async ({ page }) => {
+	test("menu jump renders data browser with documents chunks metadata and images", async ({ page }) => {
 		await page.goto("/audit-results");
 		await page.getByRole("link", { name: "数据浏览器" }).click();
 
 		await expect(page).toHaveURL(/\/data-browser$/);
-		await expect(page.getByRole("heading", { name: "数据浏览" })).toBeVisible();
+		await expect(page.getByRole("heading", { name: "数据浏览器" })).toBeVisible();
 		await expect(page.locator("section[data-page-id='data-browser']")).toBeVisible();
 		await expect(page.locator(".page-title")).toHaveText("数据浏览器");
+
+		const firstDocument = page.locator("[data-testid^='browser-doc-']").first();
+		await expect(firstDocument).toBeVisible();
+		await expect(page.locator("[data-testid='browser-selected-doc-id']")).not.toHaveText(
+			"",
+		);
+
+		await page.locator("[data-testid='browser-chunk-search']").fill("谐波");
+		await expect(page.locator("[data-testid^='chunk-card-']").first()).toBeVisible();
+
+		await page.locator("[data-testid^='chunk-image-']").first().click();
+		await expect(page.locator("[data-testid='browser-image-spotlight-caption']")).toContainText(
+			"图",
+		);
+
+		await page.locator("[data-testid='browser-collection-filter']").selectOption("sgcc-archive");
+		await expect(page.locator("[data-testid^='browser-doc-']")).toHaveCount(1);
 	});
 
 	test("menu jump renders evaluation skeleton", async ({ page }) => {

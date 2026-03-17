@@ -36,14 +36,14 @@ Task selection algorithm:
 
 ## Current Snapshot
 
-Generated at: `2026-03-17 19:47:44`
-Overall: `16/118` completed (`14%`)
+Generated at: `2026-03-17 21:50:04`
+Overall: `17/118` completed (`14%`)
 
 | Phase | Total | Done | In Progress | Not Started | Progress |
 | ----- | ----- | ---- | ----------- | ----------- | -------- |
 | A | 5 | 5 | 0 | 0 | 100% |
 | B | 7 | 7 | 0 | 0 | 100% |
-| C | 10 | 4 | 0 | 6 | 40% |
+| C | 10 | 5 | 0 | 5 | 50% |
 | D | 11 | 0 | 0 | 11 | 0% |
 | E | 16 | 0 | 0 | 16 | 0% |
 | F | 11 | 0 | 0 | 11 | 0% |
@@ -55,9 +55,9 @@ Overall: `16/118` completed (`14%`)
 
 ## Task Cursor
 
-- Last completed: `C4` 系统总览页面真实指标卡
+- Last completed: `C5` 数据浏览器页面
 - In progress: `none`
-- Selected task (auto): `C5 (数据浏览器页面)`
+- Selected task (auto): `C6 (Ingestion 管理页面)`
 - Selection reason: `first [ ] task in section order`
 
 ## Re-sync
