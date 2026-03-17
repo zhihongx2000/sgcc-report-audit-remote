@@ -3,5 +3,5 @@ import AppShell from "./layouts/AppShell.vue";
 </script>
 
 <template>
-	<AppShell />
+  <AppShell />
 </template>

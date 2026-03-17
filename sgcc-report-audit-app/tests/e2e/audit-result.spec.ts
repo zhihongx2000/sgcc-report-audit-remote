@@ -9,6 +9,16 @@ test.describe("dashboard skeleton smoke - audit and core pages", () => {
 		await expect(page.locator(".page-title")).toHaveText("报告审查");
 	});
 
+	test("audit result page renders 20 items and supports status filter", async ({ page }) => {
+		await page.goto("/audit-results");
+
+		const tableRows = page.locator("[data-testid^='check-row-']");
+		await expect(tableRows).toHaveCount(20);
+
+		await page.locator("[data-testid='status-filter']").selectOption("fail");
+		await expect(tableRows).toHaveCount(3);
+	});
+
 	test("menu jump renders overview skeleton", async ({ page }) => {
 		await page.goto("/audit-results");
 		await page.getByRole("link", { name: "系统总览" }).click();
