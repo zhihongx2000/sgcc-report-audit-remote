@@ -36,13 +36,13 @@ Task selection algorithm:
 
 ## Current Snapshot
 
-Generated at: `2026-03-16 17:41:58`
-Overall: `11/118` completed (`9%`)
+Generated at: `2026-03-17 18:41:25`
+Overall: `12/118` completed (`10%`)
 
 | Phase | Total | Done | In Progress | Not Started | Progress |
 | ----- | ----- | ---- | ----------- | ----------- | -------- |
 | A | 5 | 5 | 0 | 0 | 100% |
-| B | 7 | 6 | 0 | 1 | 86% |
+| B | 7 | 7 | 0 | 0 | 100% |
 | C | 10 | 0 | 0 | 10 | 0% |
 | D | 11 | 0 | 0 | 11 | 0% |
 | E | 16 | 0 | 0 | 16 | 0% |
@@ -55,9 +55,9 @@ Overall: `11/118` completed (`9%`)
 
 ## Task Cursor
 
-- Last completed: `B6` API 客户端与 Mock 适配
+- Last completed: `B7` 前端骨架冒烟测试
 - In progress: `none`
-- Selected task (auto): `B7 (前端骨架冒烟测试)`
+- Selected task (auto): `C1 (审查结果列表与 20 项卡片)`
 - Selection reason: `first [ ] task in section order`
 
 ## Re-sync
