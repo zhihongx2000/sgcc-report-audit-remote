@@ -19,10 +19,23 @@ Use this file as the control checklist for every auto-coder cycle.
 - [ ] Record last completed task, selected task ID, and `6.4` acceptance row.
 - [ ] Map the task to required sections (`1/2/3/4/5/6.4`).
 - [ ] Produce a written plan before editing files.
+- [ ] On current host, run `uv sync` in each Python subproject before test/implementation commands.
 - [ ] Keep edits inside selected task scope.
 - [ ] Run bounded pytest loop (round 0..2).
 - [ ] Update `6.2` and `6.3` after success.
 - [ ] Re-sync schedule snapshot script.
+
+## Multi-Host uv Sync Rule
+
+1. `.venv` is host-local and is not expected to sync across machines.
+2. After pulling latest code on a new host, recreate/sync envs from manifest files (`pyproject.toml`, `uv.lock`) with:
+
+```bash
+cd rag-server && uv sync
+cd ../sgcc-report-audit-app/backend && uv sync
+```
+
+3. If Python version is incompatible with `requires-python`, install/select a compatible interpreter first, then rerun `uv sync`.
 
 ## Frontend Design Gate (When Task Touches `frontend/**`)
 

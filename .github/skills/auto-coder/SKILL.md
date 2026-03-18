@@ -32,6 +32,38 @@ Execution rule:
 2. Use `nvm`-managed Node/NPM for frontend tasks.
 3. If local versions differ, report mismatch before proceeding with risky changes.
 
+## Multi-Host Environment Sync (Mandatory)
+
+When developing on multiple hosts, `.venv` directories are not expected to sync with git. Only dependency manifests (such as `pyproject.toml` and `uv.lock`) are authoritative.
+
+Required actions after pulling latest code on a new host:
+
+1. Recreate/sync Python env in each Python subproject with `uv sync`.
+2. For this repository, run both:
+
+```bash
+cd rag-server && uv sync
+cd ../sgcc-report-audit-app/backend && uv sync
+```
+
+3. If `uv sync` fails due to Python version mismatch (for example system Python < `requires-python`), fix by pinning/creating a compatible interpreter first, then resync:
+
+```bash
+cd rag-server
+uv python install 3.12
+uv venv --python 3.12
+uv sync
+
+cd ../sgcc-report-audit-app/backend
+uv venv --python 3.12
+uv sync
+```
+
+Execution guardrail:
+
+1. Before running tests or implementation commands, ensure the target subproject has completed `uv sync` on the current host.
+2. Do not assume an existing `.venv` is valid across machines.
+
 ## References Map
 
 Load these references on demand:

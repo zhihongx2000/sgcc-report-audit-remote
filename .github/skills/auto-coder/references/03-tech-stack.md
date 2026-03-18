@@ -24,6 +24,19 @@
 3. `npm 11.9.0`
 4. `node v24.14.0`
 
+## Multi-Host Python Environment Rule
+
+1. Use `uv` to rebuild environments per host; do not assume `.venv` is portable across machines.
+2. Dependency truth source is `pyproject.toml` (+ `uv.lock` when present), not checked-in virtualenv folders.
+3. For this repository, run:
+
+```bash
+cd rag-server && uv sync
+cd ../sgcc-report-audit-app/backend && uv sync
+```
+
+4. If `uv sync` fails due to Python version mismatch, install/select a compatible version (for example 3.12), then rerun sync.
+
 ## Configuration Staging Rule
 
 1. `A4` builds config loading foundation with minimal key set.
