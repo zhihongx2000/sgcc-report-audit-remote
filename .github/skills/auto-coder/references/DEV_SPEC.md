@@ -2800,7 +2800,7 @@ read_only: true
 
 | 任务编号 | 任务名称                         | 状态 | 完成日期 | 备注                                                                                                                                       |
 | -------- | -------------------------------- | ---- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| D1       | BaseLLM 与 Provider 适配接口     | [ ]  | -        | `src/libs/llm/base_llm.py` + 统一 `generate/chat` 契约                                                                                     |
+| D1       | BaseLLM 与 Provider 适配接口     | [x]  | 26-03-18 16:53:06 | `src/libs/llm/base_llm.py` + 统一 `generate/chat` 契约                                                                                     |
 | D2       | LLM 实现（全 Provider 适配）     | [ ]  | -        | `azure_openai_llm.py`、`openai_llm.py`、`qwen_llm.py`、`vllm_llm.py`、`deepseek_llm.py`、`ollama_llm.py`，openai-compatible 适配与参数校验 |
 | D3       | Embedding 抽象与实现             | [ ]  | -        | `src/libs/embedding/base_embedding.py` + `openai_embedding.py`、`bge_embedding.py`、`ollama_embedding.py`                                  |
 | D4       | Vision LLM 抽象与实现            | [ ]  | -        | `src/libs/vision/base_vision_llm.py` + `azure_vision_llm.py`、`qwen_vl_client.py`                                                          |
@@ -2939,7 +2939,7 @@ read_only: true
 | 阶段 A   | 5        | 5      | 100%    |
 | 阶段 B   | 7        | 7      | 100%    |
 | 阶段 C   | 10       | 10     | 100%    |
-| 阶段 D   | 11       | 0      | 0%      |
+| 阶段 D   | 11       | 1      | 9%      |
 | 阶段 E   | 16       | 0      | 0%      |
 | 阶段 F   | 11       | 0      | 0%      |
 | 阶段 G   | 10       | 0      | 0%      |
@@ -2947,7 +2947,7 @@ read_only: true
 | 阶段 I   | 15       | 0      | 0%      |
 | 阶段 J   | 10       | 0      | 0%      |
 | 阶段 K   | 10       | 0      | 0%      |
-| **总计** | **118**  | **22** | **19%** |
+| **总计** | **118**  | **23** | **19%** |
 
 ### 6.4 分任务实现细则（按 6.2 全量展开）
 
