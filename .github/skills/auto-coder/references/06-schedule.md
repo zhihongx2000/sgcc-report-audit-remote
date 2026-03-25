@@ -36,15 +36,15 @@ Task selection algorithm:
 
 ## Current Snapshot
 
-Generated at: `2026-03-18 16:55:23`
-Overall: `23/118` completed (`19%`)
+Generated at: `2026-03-25 20:41:23`
+Overall: `24/118` completed (`20%`)
 
 | Phase | Total | Done | In Progress | Not Started | Progress |
 | ----- | ----- | ---- | ----------- | ----------- | -------- |
 | A | 5 | 5 | 0 | 0 | 100% |
 | B | 7 | 7 | 0 | 0 | 100% |
 | C | 10 | 10 | 0 | 0 | 100% |
-| D | 11 | 1 | 0 | 10 | 9% |
+| D | 11 | 2 | 0 | 9 | 18% |
 | E | 16 | 0 | 0 | 16 | 0% |
 | F | 11 | 0 | 0 | 11 | 0% |
 | G | 10 | 0 | 0 | 10 | 0% |
@@ -55,9 +55,9 @@ Overall: `23/118` completed (`19%`)
 
 ## Task Cursor
 
-- Last completed: `D1` BaseLLM 与 Provider 适配接口
+- Last completed: `D2` LLM 实现（全 Provider 适配）
 - In progress: `none`
-- Selected task (auto): `D2 (LLM 实现（全 Provider 适配）)`
+- Selected task (auto): `D3 (Embedding 抽象与实现)`
 - Selection reason: `first [ ] task in section order`
 
 ## Re-sync
