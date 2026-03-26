@@ -70,3 +70,41 @@ git pull --ff-only origin dev
 
 - 若本地有未提交改动，拉取前建议先 `git stash` 或先提交。
 - `--ff-only` 可避免产生不必要的合并提交，保持提交历史更干净。
+
+## 5. 常见问题：推送时报 Authentication failed
+
+### 5.1 问题现象
+
+```
+remote: Invalid username or token. Password authentication is not supported for Git operations.
+fatal: Authentication failed for 'https://github.com/...'
+```
+
+### 5.2 原因
+
+GitHub 自 2021 年 8 月起**已废弃 HTTPS 密码认证**，即使密码正确也会报此错误。必须改用 Personal Access Token（PAT）或 SSH 密钥。
+
+### 5.3 解决方案一：使用 Personal Access Token（PAT）
+
+1. 登录 GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
+2. 生成新 Token，勾选 `repo` 权限
+3. 将 Token 嵌入远程 URL，避免每次手动输入：
+
+```bash
+git remote set-url origin https://<TOKEN>@github.com/<用户名>/<仓库名>.git
+```
+
+### 5.4 解决方案二：切换为 SSH 认证（推荐）
+
+```bash
+# 1. 生成 SSH 密钥（如已有可跳过）
+ssh-keygen -t ed25519 -C "your_email@example.com"
+
+# 2. 将公钥内容添加到 GitHub → Settings → SSH and GPG keys
+cat ~/.ssh/id_ed25519.pub
+
+# 3. 将远程 URL 改为 SSH 格式
+git remote set-url origin git@github.com:<用户名>/<仓库名>.git
+```
+
+配置完成后正常执行 `git push` 即可，无需输入任何凭据。
