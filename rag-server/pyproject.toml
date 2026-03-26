@@ -12,6 +12,9 @@ dependencies = [
 	"torchvision==0.22.0",
 	"torchaudio==2.7.0",
 	"langchain-text-splitters>=1.1.1",
+	"sqlalchemy>=2.0.0,<3.0.0",
+	"psycopg2-binary>=2.9.0,<3.0.0",
+	"pgvector>=0.3.0,<1.0.0",
 ]
 
 [build-system]

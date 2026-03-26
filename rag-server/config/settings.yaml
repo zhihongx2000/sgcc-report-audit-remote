@@ -11,3 +11,25 @@ llm:
   timeout_seconds: 30
 retrieval:
   top_k: 5
+
+# D6: PostgreSQL connection defaults (override with PG_HOST/PG_DATABASE/etc. env vars)
+postgres:
+  host: localhost
+  port: 5432
+  database: rag_db
+  user: postgres
+  password: ""
+  schema: public
+  sslmode: disable
+  pool_size: 5
+  pool_timeout_sec: 30
+  statement_timeout_ms: 30000
+
+# D6: VectorStore configuration
+vector_store:
+  backend: pgvector
+  table: rag_chunks
+  embedding_dim: 1536
+  distance_metric: cosine
+  enable_sparse_fields: true
+  metadata_jsonb: true

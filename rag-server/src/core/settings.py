@@ -4,6 +4,8 @@ Priority order is: environment variables > YAML file values > model defaults.
 
 Current scope intentionally matches A4 baseline fields. Full DEV_SPEC 5.6
 coverage and stronger config model validation are scheduled in D10.
+
+D6 additions: PostgresSettings and VectorStoreSettings for DB connectivity.
 """
 
 from __future__ import annotations
@@ -13,7 +15,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LLMSettings(BaseModel):
@@ -31,6 +33,34 @@ class RetrievalSettings(BaseModel):
 	top_k: int = Field(default=5, ge=1)
 
 
+class PostgresSettings(BaseModel):
+	"""PostgreSQL connection settings."""
+
+	host: str = Field(default="localhost")
+	port: int = Field(default=5432, ge=1)
+	database: str = Field(default="postgres")
+	user: str = Field(default="postgres")
+	password: str = Field(default="")
+	schema_name: str = Field(default="public", alias="schema")
+	sslmode: str = Field(default="disable")
+	pool_size: int = Field(default=5, ge=1)
+	pool_timeout_sec: int = Field(default=30, ge=1)
+	statement_timeout_ms: int = Field(default=30000, ge=0)
+
+	model_config = ConfigDict(populate_by_name=True)
+
+
+class VectorStoreSettings(BaseModel):
+	"""Vector store configuration."""
+
+	backend: str = Field(default="pgvector")
+	table: str = Field(default="rag_chunks")
+	embedding_dim: int = Field(default=1536, ge=1)
+	distance_metric: str = Field(default="cosine")
+	enable_sparse_fields: bool = Field(default=True)
+	metadata_jsonb: bool = Field(default=True)
+
+
 class Settings(BaseModel):
 	"""Top-level rag-server settings model."""
 
@@ -38,6 +68,8 @@ class Settings(BaseModel):
 	environment: str = Field(default="development", min_length=1)
 	llm: LLMSettings
 	retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
+	postgres: PostgresSettings = Field(default_factory=PostgresSettings)
+	vector_store: VectorStoreSettings = Field(default_factory=VectorStoreSettings)
 
 
 _DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "settings.yaml"
@@ -50,6 +82,12 @@ _ENV_OVERRIDES: tuple[tuple[str, tuple[str, ...], Callable[[str], Any]], ...] = 
 	("RAG_LLM_API_KEY", ("llm", "api_key"), str),
 	("RAG_LLM_TIMEOUT_SECONDS", ("llm", "timeout_seconds"), int),
 	("RAG_RETRIEVAL_TOP_K", ("retrieval", "top_k"), int),
+	# D6: PostgreSQL env overrides
+	("PG_HOST", ("postgres", "host"), str),
+	("PG_PORT", ("postgres", "port"), int),
+	("PG_DATABASE", ("postgres", "database"), str),
+	("PG_USER", ("postgres", "user"), str),
+	("PG_PASSWORD", ("postgres", "password"), str),
 )
 
 
