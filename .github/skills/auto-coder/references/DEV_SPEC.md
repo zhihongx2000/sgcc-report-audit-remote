@@ -208,7 +208,22 @@
   - **解析与标准化**：
     - 当前范围：**仅实现 PDF/WORD(`.doc`，`.docx`) -> canonical Markdown 子集** 的转换。
   - 技术选型（Python PDF -> Markdown）：
-    - **首选：MarkItDown**（作为默认 PDF 解析/转换引擎）。优点是直接产出 Markdown 形态文本，且解析速度快，便于与后续 `RecursiveCharacterTextSplitter` 的 separators 配合。
+    - **首选：MarkItDown**（当前已实现，作为默认 PDF/WORD 解析引擎）。优点是直接产出 Markdown 形态文本，解析速度快，便于与后续 `RecursiveCharacterTextSplitter` 的 separators 配合。
+    - **可选：MinerU**（高精度解析，适合含大量图表/公式的报告文档）。采用**可插拔 Loader 后端**接入，通过 `settings.yaml` 的 `loader.backend` 字段切换，上层 Pipeline 无感知。MinerU 集成分两档：
+      1. `mineru_api`（当前推荐）：向 MinerU 云端 API 发 HTTP 请求，得到 Markdown 后包装为标准 `Document` 返回。
+      2. `mineru_local`（预留）：向本地 Docker 部署的 MinerU 服务发请求，**接口与 API 版完全一致**，换机器只需修改 `loader.mineru_local.endpoint`，代码无需改动。
+    - **Loader 后端路由**（在 `loader_factory.py` 中实现，E 阶段落地）：
+      ```yaml
+      loader:
+        backend: markitdown # markitdown | mineru_api | mineru_local
+        mineru_api:
+          base_url: "https://mineru.net/api/v4"
+          api_token: "${MINERU_API_TOKEN}"
+          timeout_sec: 120
+        mineru_local:
+          endpoint: "http://localhost:8888" # Docker 服务地址
+          timeout_sec: 120
+      ```
   - 输出标准 `Document`：`id|source|text(markdown)|metadata`。metadata 至少包含 `source_path`, `doc_type`, `title/heading_outline`, `page/slide`（如适用）, `images`（图片引用列表）。
   - Loader 不负责切分：只做“格式统一 + 结构抽取 + 引用收集”，确保切分策略可独立迭代与度量。
 
@@ -515,12 +530,24 @@ MCP 协议的 Tool 返回格式支持多种内容类型（`content` 数组），
 
 本项目当前采用 **双路编码（Dense + Sparse）** 策略：
 
-- **Dense Embeddings（语义向量）**：调用 Embedding 模型（如 OpenAI text-embedding-3）生成高维浮点向量，捕捉文本的深层语义关联。
+- **Dense Embeddings（语义向量）**：调用 Embedding 模型生成高维浮点向量，捕捉文本的深层语义关联。
 - **Sparse Embeddings（稀疏向量）**：利用 BM25 编码器生成稀疏向量（Keyword Weights），捕捉精确的关键词匹配信息。
 
 存储时，Dense Vector 和 Sparse Vector 与 Chunk 原文、Metadata 一起原子化写入向量数据库，确保检索时可同时利用两种向量。
 
-> **当前实现说明**：目前系统实现了 Dense + Sparse 双路编码。架构设计上预留了切换能力，如需使用其他 Embedding 模型（如 BGE、Ollama 本地模型）或调整编码策略，可在 Pipeline 中替换相应组件。
+**Embedding 模型选型（本机：RTX 4060 8GB 显存）**：
+
+> 本机选型基于 NVIDIA RTX 4060 Laptop GPU（8 GB 显存）。工厂实例化时通过 `cache_folder` 参数指向 `rag-server/models/`，无需依赖系统环境变量。
+
+| 用途            | 推荐模型                  | 参数量 | 显存占用 | 输出维度 | 备注                            |
+| --------------- | ------------------------- | ------ | -------- | -------- | ------------------------------- |
+| Dense Embedding | `BAAI/bge-large-zh-v1.5`  | 326M   | ~1.3 GB  | **1024** | 中文优先，质量与速度平衡好      |
+| Reranker        | `BAAI/bge-reranker-v2-m3` | 568M   | ~1.1 GB  | -        | 两者同时加载约 2.5 GB，余量充足 |
+| 中英混合备选    | `BAAI/bge-m3`             | 570M   | ~2.2 GB  | 1024     | 多语言，维度同 bge-large-zh     |
+
+> ⚠️ **embedding_dim 必须与实际模型一致**：`bge-large-zh-v1.5` / `bge-m3` 输出维度为 **1024**；OpenAI `text-embedding-3-small` 为 1536。切换模型时必须同步更新 `vector_store.embedding_dim` 并重建索引。
+
+> **当前实现说明**：目前系统实现了 Dense + Sparse 双路编码。默认 `provider: bge`，模型 `BAAI/bge-large-zh-v1.5`，`embedding_dim: 1024`。如切换为 OpenAI Embedding，需同步将 `embedding_dim` 改为 1536。
 
 ---
 
@@ -594,7 +621,7 @@ MCP 协议的 Tool 返回格式支持多种内容类型（`content` 数组），
   vector_store:
     backend: pgvector # 当前仅实现 pgvector，保留扩展位
     table: rag_chunks
-    embedding_dim: 1536
+    embedding_dim: 1024 # ⚠️ 与 embedding.embedding_dim 保持一致
     distance_metric: cosine
     enable_sparse_fields: true
     metadata_jsonb: true
@@ -606,7 +633,7 @@ MCP 协议的 Tool 返回格式支持多种内容类型（`content` 数组），
 
   rerank:
     backend: cross_encoder # none | cross_encoder | llm
-    model: bge-reranker-v2-m3
+    model: BAAI/bge-reranker-v2-m3
 
   evaluation:
     backends: [ragas, custom]
@@ -2470,13 +2497,27 @@ llm:
   # OpenAI-compatible（用于 Qwen / vLLM 等）
   base_url: "${OPENAI_COMPAT_BASE_URL}"
 
+# Loader 配置（Ingestion Pipeline 文档解析后端）
+loader:
+  backend: markitdown # markitdown | mineru_api | mineru_local
+  mineru_api:
+    base_url: "https://mineru.net/api/v4"
+    api_token: "${MINERU_API_TOKEN}"
+    timeout_sec: 120
+  mineru_local:
+    endpoint: "http://localhost:8888" # Docker 部署地址，换机器只改此项
+    timeout_sec: 120
+
 # Embedding 配置
 embedding:
-  provider: openai # openai | azure | ollama | bge | openai-compatible
-  model: text-embedding-3-small
-  embedding_dim: 1536
+  provider: bge # openai | azure | ollama | bge | openai-compatible
+  model: BAAI/bge-large-zh-v1.5 # 本机 RTX 4060 8GB，dim=1024
+  embedding_dim: 1024 # ⚠️ 必须与模型输出维度一致，切换模型时同步修改
   batch_size: 64
   timeout_sec: 30
+  # 模型权重本地缓存目录（相对于 rag-server/ 工作目录，git-ignored）
+  # 换机器时 rsync 此目录，无需重新下载
+  model_cache_dir: ./models
 
 # Vision LLM 配置（图片描述）
 vision_llm:

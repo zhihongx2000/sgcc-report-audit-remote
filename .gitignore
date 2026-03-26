@@ -12,3 +12,6 @@ wheels/
 # Node modules
 node_modules/
 sgcc-report-audit-app/frontend/node_modules/
+# Local model weights (downloaded from HuggingFace / ModelScope)
+# Use SENTENCE_TRANSFORMERS_HOME=./models to redirect here
+rag-server/models/

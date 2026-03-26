@@ -209,6 +209,11 @@
     - 当前范围：**仅实现 PDF/WORD(`.doc`，`.docx`) -> canonical Markdown 子集** 的转换。
   - 技术选型（Python PDF -> Markdown）：
     - **首选：MarkItDown**（作为默认 PDF 解析/转换引擎）。优点是直接产出 Markdown 形态文本，且解析速度快，便于与后续 `RecursiveCharacterTextSplitter` 的 separators 配合。
+    - **可选：MinerU（可插拔升级路径）**：当需要更高精度的 PDF 解析（复杂表格、多栏布局）时，可通过配置 `loader.backend` 切换到 MinerU，无需修改 Pipeline 逻辑。
+      - `mineru_api`：调用 MinerU 云端 API（`pdf_loader_mineru_api.py`），适合生产环境；需设置 `MINERU_API_TOKEN`。
+      - `mineru_local`：调用本地 Docker 部署的 MinerU 服务（`pdf_loader_mineru_local.py`），适合换机器后离线使用；只需修改 `loader.mineru_local.endpoint`。
+      - 两种模式均继承 `BaseLoader`，产出相同的 `Document` 格式，切换对下游 Splitter / Transform 透明。
+      - E 阶段 Loader Factory 将根据 `loader.backend` 字段自动路由到对应实现。
   - 输出标准 `Document`：`id|source|text(markdown)|metadata`。metadata 至少包含 `source_path`, `doc_type`, `title/heading_outline`, `page/slide`（如适用）, `images`（图片引用列表）。
   - Loader 不负责切分：只做“格式统一 + 结构抽取 + 引用收集”，确保切分策略可独立迭代与度量。
 
@@ -522,6 +527,21 @@ MCP 协议的 Tool 返回格式支持多种内容类型（`content` 数组），
 
 > **当前实现说明**：目前系统实现了 Dense + Sparse 双路编码。架构设计上预留了切换能力，如需使用其他 Embedding 模型（如 BGE、Ollama 本地模型）或调整编码策略，可在 Pipeline 中替换相应组件。
 
+> **本地模型资产管理**：
+>
+> - 模型权重统一存放在 `rag-server/models/`（已加入 `.gitignore`，换机器时 `rsync` 此目录即可）。
+> - 通过 `model_cache_dir: ./models`（顶层配置字段）统一指定，`BGEEmbedding` 和 `CrossEncoderReranker` 均通过 `cache_folder` 参数读取此值。
+> - **本机 RTX 4060 8GB 显存推荐选型**：
+>
+> | 用途      | 模型                      | 维度     | 显存占用                   |
+> | --------- | ------------------------- | -------- | -------------------------- |
+> | Embedding | `BAAI/bge-large-zh-v1.5`  | **1024** | ~1.3 GB                    |
+> | Reranker  | `BAAI/bge-reranker-v2-m3` | —        | ~1.1 GB                    |
+> | 合计      | —                         | —        | ~2.5 GB（8 GB 内完全可行） |
+>
+> - ⚠️ **`embedding_dim` 必须设为 `1024`**（不是 1536），所有配置示例及 `vector_store.embedding_dim` 均须保持一致。
+> - 中国大陆网络可使用 `MODELSCOPE_CACHE` 环境变量或 `modelscope` SDK 替代 HuggingFace 下载。
+
 ---
 
 **4. 召回策略 (Retrieval Strategy)**
@@ -575,9 +595,9 @@ MCP 协议的 Tool 返回格式支持多种内容类型（`content` 数组），
     timeout_sec: 60
 
   embedding:
-    provider: openai # openai | azure | ollama | bge | openai-compatible
-    model: text-embedding-3-small
-    embedding_dim: 1536
+    provider: bge # openai | azure | ollama | bge | openai-compatible
+    model: BAAI/bge-large-zh-v1.5 # 本机 RTX 4060 8GB，dim=1024
+    embedding_dim: 1024 # ⚠️ 必须与模型输出维度一致
 
   postgres:
     host: "${PG_HOST}"
@@ -594,7 +614,7 @@ MCP 协议的 Tool 返回格式支持多种内容类型（`content` 数组），
   vector_store:
     backend: pgvector # 当前仅实现 pgvector，保留扩展位
     table: rag_chunks
-    embedding_dim: 1536
+    embedding_dim: 1024 # 与 embedding.embedding_dim 保持一致
     distance_metric: cosine
     enable_sparse_fields: true
     metadata_jsonb: true
@@ -606,7 +626,7 @@ MCP 协议的 Tool 返回格式支持多种内容类型（`content` 数组），
 
   rerank:
     backend: cross_encoder # none | cross_encoder | llm
-    model: bge-reranker-v2-m3
+    model: BAAI/bge-reranker-v2-m3
 
   evaluation:
     backends: [ragas, custom]
@@ -2433,13 +2453,27 @@ llm:
   # OpenAI-compatible（用于 Qwen / vLLM 等）
   base_url: "${OPENAI_COMPAT_BASE_URL}"
 
+# Loader 配置（Ingestion Pipeline 文档解析后端）
+loader:
+  backend: markitdown # markitdown | mineru_api | mineru_local
+  mineru_api:
+    base_url: "https://mineru.net/api/v4"
+    api_token: "${MINERU_API_TOKEN}"
+    timeout_sec: 120
+  mineru_local:
+    endpoint: "http://localhost:8888" # Docker 部署地址，换机器只改此项
+    timeout_sec: 120
+
 # Embedding 配置
 embedding:
-  provider: openai # openai | azure | ollama | bge | openai-compatible
-  model: text-embedding-3-small
-  embedding_dim: 1536
+  provider: bge # openai | azure | ollama | bge | openai-compatible
+  model: BAAI/bge-large-zh-v1.5 # 本机 RTX 4060 8GB，dim=1024
+  embedding_dim: 1024 # ⚠️ 必须与模型输出维度一致，切换模型时同步修改
   batch_size: 64
   timeout_sec: 30
+  # 模型权重本地缓存目录（相对于 rag-server/ 工作目录，git-ignored）
+  # 换机器时 rsync 此目录，无需重新下载
+model_cache_dir: ./models
 
 # Vision LLM 配置（图片描述）
 vision_llm:
@@ -2462,7 +2496,7 @@ splitter:
 vector_store:
   backend: pgvector # 当前仅实现 pgvector，保留扩展位
   table: rag_chunks
-  embedding_dim: 1536
+  embedding_dim: 1024 # 与 embedding.embedding_dim 保持一致
   distance_metric: cosine
   enable_sparse_fields: true
   metadata_jsonb: true
@@ -2493,7 +2527,7 @@ retrieval:
 # 重排配置
 rerank:
   backend: cross_encoder # none | cross_encoder | llm
-  model: bge-reranker-v2-m3
+  model: BAAI/bge-reranker-v2-m3 # 本机 RTX 4060 8GB，~1.1GB VRAM
   top_m: 30
   timeout_sec: 20
   fallback_to_fusion: true

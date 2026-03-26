@@ -25,6 +25,7 @@ class BGEEmbedding(BaseEmbedding):
 		device: str | None = None,
 		batch_size: int = 32,
 		normalize_embeddings: bool = True,
+		cache_folder: str | None = None,
 		retry_policy: RetryPolicy | None = None,
 	) -> None:
 		super().__init__(retry_policy=retry_policy)
@@ -32,6 +33,7 @@ class BGEEmbedding(BaseEmbedding):
 		self._device = device
 		self._batch_size = batch_size
 		self._normalize_embeddings = normalize_embeddings
+		self._cache_folder = cache_folder  # e.g. "rag-server/models"
 		self._model = None  # lazy init
 
 	def _load_model(self) -> None:
@@ -44,6 +46,8 @@ class BGEEmbedding(BaseEmbedding):
 		kwargs: dict = {}
 		if self._device is not None:
 			kwargs["device"] = self._device
+		if self._cache_folder is not None:
+			kwargs["cache_folder"] = self._cache_folder
 		self._model = sentence_transformers.SentenceTransformer(
 			self._model_name_or_path, **kwargs
 		)

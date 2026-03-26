@@ -4,6 +4,13 @@
 # Full config-driven schema from DEV_SPEC section 5.6 is planned in D10.
 app_name: rag-mcp-server
 environment: development
+
+# Local model cache directory (relative to rag-server/ working directory).
+# sentence-transformers and CrossEncoder load from here when
+# SENTENCE_TRANSFORMERS_HOME points to this path at startup.
+# This directory is git-ignored; copy/rsync it when migrating to a new host.
+model_cache_dir: ./models
+
 llm:
   provider: qwen
   model: qwen-plus
@@ -26,10 +33,13 @@ postgres:
   statement_timeout_ms: 30000
 
 # D6: VectorStore configuration
+# embedding_dim must match the local model output:
+#   bge-large-zh-v1.5 / bge-m3 -> 1024
+#   OpenAI text-embedding-3-small  -> 1536  (switch back when using OpenAI)
 vector_store:
   backend: pgvector
   table: rag_chunks
-  embedding_dim: 1536
+  embedding_dim: 1024 # bge-large-zh-v1.5 / bge-m3
   distance_metric: cosine
   enable_sparse_fields: true
   metadata_jsonb: true

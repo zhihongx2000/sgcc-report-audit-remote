@@ -38,10 +38,12 @@ class CrossEncoderReranker(BaseReranker):
 		*,
 		max_candidates: int = 30,
 		timeout_sec: float = 10.0,
+		cache_folder: str | None = None,
 	) -> None:
 		self._model_name = model_name
 		self._max_candidates = max_candidates
 		self._timeout_sec = timeout_sec
+		self._cache_folder = cache_folder  # e.g. "rag-server/models"
 		self._fallback = NoneReranker()
 		self._model: Any = None  # lazy-loaded on first rerank call
 
@@ -50,7 +52,10 @@ class CrossEncoderReranker(BaseReranker):
 		if self._model is None:
 			from sentence_transformers import CrossEncoder  # type: ignore[import-untyped]
 
-			self._model = CrossEncoder(self._model_name)
+			kwargs: dict = {}
+			if self._cache_folder is not None:
+				kwargs["cache_folder"] = self._cache_folder
+			self._model = CrossEncoder(self._model_name, **kwargs)
 		return self._model
 
 	def rerank(

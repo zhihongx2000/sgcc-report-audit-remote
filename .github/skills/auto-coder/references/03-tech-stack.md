@@ -43,6 +43,22 @@ cd ../sgcc-report-audit-app/backend && uv sync
 2. `D10` aligns full section `5.6` schema and strict validation.
 3. Do not force full `5.6` scope during `A4` unless user asks.
 
+## Local Model Asset Rules
+
+1. **Model storage path**: `rag-server/models/` — git-ignored, portable via `rsync`.
+2. **Top-level config field**: `model_cache_dir: ./models` (relative to `rag-server/` working directory).
+3. **Components that read `model_cache_dir`**: `BGEEmbedding` (`cache_folder` arg) and `CrossEncoderReranker` (`cache_folder` arg to `sentence_transformers.CrossEncoder`).
+4. **RTX 4060 8GB recommended models**:
+
+| Role      | Model                       | Dim  | VRAM   |
+|-----------|-----------------------------|------|--------|
+| Embedding | `BAAI/bge-large-zh-v1.5`    | 1024 | ~1.3 GB |
+| Reranker  | `BAAI/bge-reranker-v2-m3`   | —    | ~1.1 GB |
+| Total     | —                           | —    | ~2.5 GB |
+
+5. **`embedding_dim` must be `1024`** for `bge-large-zh-v1.5`/`bge-m3`. Never use 1536 for BGE models.
+6. For mainland China: use `ModelScope` SDK or set `MODELSCOPE_CACHE` env var instead of HuggingFace Hub.
+
 ## Output Record
 
 1. Stack compatibility decision.
