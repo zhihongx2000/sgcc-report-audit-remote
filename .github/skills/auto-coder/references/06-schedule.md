@@ -36,15 +36,15 @@ Task selection algorithm:
 
 ## Current Snapshot
 
-Generated at: `2026-03-25 23:39:15`
-Overall: `25/118` completed (`21%`)
+Generated at: `2026-03-26 17:56:23`
+Overall: `26/118` completed (`22%`)
 
 | Phase | Total | Done | In Progress | Not Started | Progress |
 | ----- | ----- | ---- | ----------- | ----------- | -------- |
 | A | 5 | 5 | 0 | 0 | 100% |
 | B | 7 | 7 | 0 | 0 | 100% |
 | C | 10 | 10 | 0 | 0 | 100% |
-| D | 11 | 3 | 0 | 8 | 27% |
+| D | 11 | 4 | 0 | 7 | 36% |
 | E | 16 | 0 | 0 | 16 | 0% |
 | F | 11 | 0 | 0 | 11 | 0% |
 | G | 10 | 0 | 0 | 10 | 0% |
@@ -55,9 +55,9 @@ Overall: `25/118` completed (`21%`)
 
 ## Task Cursor
 
-- Last completed: `D3` Embedding 抽象与实现
+- Last completed: `D4` Vision LLM 抽象与实现
 - In progress: `none`
-- Selected task (auto): `D4 (Vision LLM 抽象与实现)`
+- Selected task (auto): `D5 (Splitter 抽象与默认实现)`
 - Selection reason: `first [ ] task in section order`
 
 ## Re-sync
