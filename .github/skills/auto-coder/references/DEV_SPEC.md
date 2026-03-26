@@ -2798,19 +2798,19 @@ read_only: true
 
 #### 阶段 D：RAG Server 工程骨架与可插拔 Libs 默认实现
 
-| 任务编号 | 任务名称                         | 状态 | 完成日期          | 备注                                                                                                                                       |
-| -------- | -------------------------------- | ---- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| D1       | BaseLLM 与 Provider 适配接口     | [x]  | 26-03-18 16:53:06 | `src/libs/llm/base_llm.py` + 统一 `generate/chat` 契约                                                                                     |
-| D2       | LLM 实现（全 Provider 适配）     | [x]  | 26-03-25 00:00:00 | `azure_openai_llm.py`、`openai_llm.py`、`qwen_llm.py`、`vllm_llm.py`、`deepseek_llm.py`、`ollama_llm.py`，openai-compatible 适配与参数校验 |
-| D3       | Embedding 抽象与实现             | [x]  | 26-03-25 23:28:00 | `src/libs/embedding/base_embedding.py` + `openai_embedding.py`、`bge_embedding.py`、`ollama_embedding.py`                                  |
-| D4       | Vision LLM 抽象与实现            | [x]  | 26-03-26 00:00:00 | `src/libs/vision/base_vision_llm.py` + `azure_vision_llm.py`、`qwen_vl_client.py`                                                          |
-| D5       | Splitter 抽象与默认实现          | [x]  | 26-03-26 21:11:05 | `ingestion/splitters/base_splitter.py`、`recursive_character_splitter.py`、`parent_child_splitter.py`；16 单测全通过                       |
-| D6       | VectorStore 抽象与 PgVector 实现 | [x]  | 26-03-26 21:43:00 | `storage/vector/base_vector_store.py`、`pgvector_store.py`、`storage/db/engine.py`、`storage/db/session.py`；9 集成测试全通过（upsert/query/delete/filter）
-| D7       | Reranker 抽象与实现              | [ ]  | -                 | `rerank/base_reranker.py`、`none_reranker.py`、`cross_encoder_reranker.py`、`llm_reranker.py`                                              |
-| D8       | Evaluator 抽象与工厂占位         | [ ]  | -                 | `evaluation/base_evaluator.py` + `factories/evaluator_factory.py`，统一 `evaluate()` 接口                                                  |
-| D9       | 全工厂路由联通                   | [ ]  | -                 | `factories/*_factory.py` 按 `settings.yaml` 动态实例化                                                                                     |
-| D10      | 配置驱动校验                     | [ ]  | -                 | `config/settings.yaml` + Pydantic 校验（provider/model/api_key/timeout）                                                                   |
-| D11      | Libs 层单元测试（Fake/Mock）     | [ ]  | -                 | `tests/unit` 覆盖工厂路由、参数合法性、fallback 分支                                                                                       |
+| 任务编号 | 任务名称                         | 状态 | 完成日期          | 备注                                                                                                                                                        |
+| -------- | -------------------------------- | ---- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1       | BaseLLM 与 Provider 适配接口     | [x]  | 26-03-18 16:53:06 | `src/libs/llm/base_llm.py` + 统一 `generate/chat` 契约                                                                                                      |
+| D2       | LLM 实现（全 Provider 适配）     | [x]  | 26-03-25 00:00:00 | `azure_openai_llm.py`、`openai_llm.py`、`qwen_llm.py`、`vllm_llm.py`、`deepseek_llm.py`、`ollama_llm.py`，openai-compatible 适配与参数校验                  |
+| D3       | Embedding 抽象与实现             | [x]  | 26-03-25 23:28:00 | `src/libs/embedding/base_embedding.py` + `openai_embedding.py`、`bge_embedding.py`、`ollama_embedding.py`                                                   |
+| D4       | Vision LLM 抽象与实现            | [x]  | 26-03-26 00:00:00 | `src/libs/vision/base_vision_llm.py` + `azure_vision_llm.py`、`qwen_vl_client.py`                                                                           |
+| D5       | Splitter 抽象与默认实现          | [x]  | 26-03-26 21:11:05 | `ingestion/splitters/base_splitter.py`、`recursive_character_splitter.py`、`parent_child_splitter.py`；16 单测全通过                                        |
+| D6       | VectorStore 抽象与 PgVector 实现 | [x]  | 26-03-26 21:43:00 | `storage/vector/base_vector_store.py`、`pgvector_store.py`、`storage/db/engine.py`、`storage/db/session.py`；9 集成测试全通过（upsert/query/delete/filter） |
+| D7       | Reranker 抽象与实现              | [x]  | 26-03-26 22:14:00 | `rerank/base_reranker.py`、`none_reranker.py`、`cross_encoder_reranker.py`、`llm_reranker.py`；20 单测全通过（fallback/sort-stability/empty）               |
+| D8       | Evaluator 抽象与工厂占位         | [ ]  | -                 | `evaluation/base_evaluator.py` + `factories/evaluator_factory.py`，统一 `evaluate()` 接口                                                                   |
+| D9       | 全工厂路由联通                   | [ ]  | -                 | `factories/*_factory.py` 按 `settings.yaml` 动态实例化                                                                                                      |
+| D10      | 配置驱动校验                     | [ ]  | -                 | `config/settings.yaml` + Pydantic 校验（provider/model/api_key/timeout）                                                                                    |
+| D11      | Libs 层单元测试（Fake/Mock）     | [ ]  | -                 | `tests/unit` 覆盖工厂路由、参数合法性、fallback 分支                                                                                                        |
 
 #### 阶段 E：Ingestion Pipeline 主链路打通
 
@@ -2939,7 +2939,7 @@ read_only: true
 | 阶段 A   | 5        | 5      | 100%    |
 | 阶段 B   | 7        | 7      | 100%    |
 | 阶段 C   | 10       | 10     | 100%    |
-| 阶段 D   | 11       | 6      | 55%     |
+| 阶段 D   | 11       | 7      | 64%     |
 | 阶段 E   | 16       | 0      | 0%      |
 | 阶段 F   | 11       | 0      | 0%      |
 | 阶段 G   | 10       | 0      | 0%      |
@@ -2947,7 +2947,7 @@ read_only: true
 | 阶段 I   | 15       | 0      | 0%      |
 | 阶段 J   | 10       | 0      | 0%      |
 | 阶段 K   | 10       | 0      | 0%      |
-| **总计** | **118**  | **28** | **24%** |
+| **总计** | **118**  | **29** | **25%** |
 
 ### 6.4 分任务实现细则（按 6.2 全量展开）
 

@@ -33,3 +33,11 @@ vector_store:
   distance_metric: cosine
   enable_sparse_fields: true
   metadata_jsonb: true
+
+# D7: Reranker configuration
+rerank:
+  backend: cross_encoder # none | cross_encoder | llm
+  model: BAAI/bge-reranker-v2-m3
+  max_candidates: 30
+  timeout_sec: 10.0
+  fallback_to_none: true

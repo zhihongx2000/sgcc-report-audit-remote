@@ -36,15 +36,15 @@ Task selection algorithm:
 
 ## Current Snapshot
 
-Generated at: `2026-03-26 21:46:23`
-Overall: `28/118` completed (`24%`)
+Generated at: `2026-03-26 22:18:39`
+Overall: `29/118` completed (`25%`)
 
 | Phase | Total | Done | In Progress | Not Started | Progress |
 | ----- | ----- | ---- | ----------- | ----------- | -------- |
 | A | 5 | 5 | 0 | 0 | 100% |
 | B | 7 | 7 | 0 | 0 | 100% |
 | C | 10 | 10 | 0 | 0 | 100% |
-| D | 11 | 6 | 0 | 5 | 55% |
+| D | 11 | 7 | 0 | 4 | 64% |
 | E | 16 | 0 | 0 | 16 | 0% |
 | F | 11 | 0 | 0 | 11 | 0% |
 | G | 10 | 0 | 0 | 10 | 0% |
@@ -55,9 +55,9 @@ Overall: `28/118` completed (`24%`)
 
 ## Task Cursor
 
-- Last completed: `D6` VectorStore 抽象与 PgVector 实现
+- Last completed: `D7` Reranker 抽象与实现
 - In progress: `none`
-- Selected task (auto): `D7 (Reranker 抽象与实现)`
+- Selected task (auto): `D8 (Evaluator 抽象与工厂占位)`
 - Selection reason: `first [ ] task in section order`
 
 ## Re-sync

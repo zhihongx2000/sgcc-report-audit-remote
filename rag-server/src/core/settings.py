@@ -61,6 +61,20 @@ class VectorStoreSettings(BaseModel):
 	metadata_jsonb: bool = Field(default=True)
 
 
+class RerankSettings(BaseModel):
+	"""Reranker configuration.
+
+	D7 additions: backend selector, model name, and operational limits.
+	Full env-override wiring is scheduled in D10.
+	"""
+
+	backend: str = Field(default="cross_encoder")  # none | cross_encoder | llm
+	model: str = Field(default="BAAI/bge-reranker-v2-m3")
+	max_candidates: int = Field(default=30, ge=1)
+	timeout_sec: float = Field(default=10.0, gt=0)
+	fallback_to_none: bool = Field(default=True)
+
+
 class Settings(BaseModel):
 	"""Top-level rag-server settings model."""
 
@@ -70,6 +84,7 @@ class Settings(BaseModel):
 	retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
 	postgres: PostgresSettings = Field(default_factory=PostgresSettings)
 	vector_store: VectorStoreSettings = Field(default_factory=VectorStoreSettings)
+	rerank: RerankSettings = Field(default_factory=RerankSettings)
 
 
 _DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "settings.yaml"
