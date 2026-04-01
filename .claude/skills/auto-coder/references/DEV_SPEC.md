@@ -209,11 +209,6 @@
     - 当前范围：**仅实现 PDF/WORD(`.doc`，`.docx`) -> canonical Markdown 子集** 的转换。
   - 技术选型（Python PDF -> Markdown）：
     - **首选：MarkItDown**（作为默认 PDF 解析/转换引擎）。优点是直接产出 Markdown 形态文本，且解析速度快，便于与后续 `RecursiveCharacterTextSplitter` 的 separators 配合。
-    - **可选：MinerU（可插拔升级路径）**：当需要更高精度的 PDF 解析（复杂表格、多栏布局）时，可通过配置 `loader.backend` 切换到 MinerU，无需修改 Pipeline 逻辑。
-      - `mineru_api`：调用 MinerU 云端 API（`pdf_loader_mineru_api.py`），适合生产环境；需设置 `MINERU_API_TOKEN`。
-      - `mineru_local`：调用本地 Docker 部署的 MinerU 服务（`pdf_loader_mineru_local.py`），适合换机器后离线使用；只需修改 `loader.mineru_local.endpoint`。
-      - 两种模式均继承 `BaseLoader`，产出相同的 `Document` 格式，切换对下游 Splitter / Transform 透明。
-      - E 阶段 Loader Factory 将根据 `loader.backend` 字段自动路由到对应实现。
   - 输出标准 `Document`：`id|source|text(markdown)|metadata`。metadata 至少包含 `source_path`, `doc_type`, `title/heading_outline`, `page/slide`（如适用）, `images`（图片引用列表）。
   - Loader 不负责切分：只做“格式统一 + 结构抽取 + 引用收集”，确保切分策略可独立迭代与度量。
 
@@ -527,21 +522,6 @@ MCP 协议的 Tool 返回格式支持多种内容类型（`content` 数组），
 
 > **当前实现说明**：目前系统实现了 Dense + Sparse 双路编码。架构设计上预留了切换能力，如需使用其他 Embedding 模型（如 BGE、Ollama 本地模型）或调整编码策略，可在 Pipeline 中替换相应组件。
 
-> **本地模型资产管理**：
->
-> - 模型权重统一存放在 `rag-server/models/`（已加入 `.gitignore`，换机器时 `rsync` 此目录即可）。
-> - 通过 `model_cache_dir: ./models`（顶层配置字段）统一指定，`BGEEmbedding` 和 `CrossEncoderReranker` 均通过 `cache_folder` 参数读取此值。
-> - **本机 RTX 4060 8GB 显存推荐选型**：
->
-> | 用途      | 模型                      | 维度     | 显存占用                   |
-> | --------- | ------------------------- | -------- | -------------------------- |
-> | Embedding | `BAAI/bge-large-zh-v1.5`  | **1024** | ~1.3 GB                    |
-> | Reranker  | `BAAI/bge-reranker-v2-m3` | —        | ~1.1 GB                    |
-> | 合计      | —                         | —        | ~2.5 GB（8 GB 内完全可行） |
->
-> - ⚠️ **`embedding_dim` 必须设为 `1024`**（不是 1536），所有配置示例及 `vector_store.embedding_dim` 均须保持一致。
-> - 中国大陆网络可使用 `MODELSCOPE_CACHE` 环境变量或 `modelscope` SDK 替代 HuggingFace 下载。
-
 ---
 
 **4. 召回策略 (Retrieval Strategy)**
@@ -595,9 +575,9 @@ MCP 协议的 Tool 返回格式支持多种内容类型（`content` 数组），
     timeout_sec: 60
 
   embedding:
-    provider: bge # openai | azure | ollama | bge | openai-compatible
-    model: BAAI/bge-large-zh-v1.5 # 本机 RTX 4060 8GB，dim=1024
-    embedding_dim: 1024 # ⚠️ 必须与模型输出维度一致
+    provider: openai # openai | azure | ollama | bge | openai-compatible
+    model: text-embedding-3-small
+    embedding_dim: 1536
 
   postgres:
     host: "${PG_HOST}"
@@ -614,7 +594,7 @@ MCP 协议的 Tool 返回格式支持多种内容类型（`content` 数组），
   vector_store:
     backend: pgvector # 当前仅实现 pgvector，保留扩展位
     table: rag_chunks
-    embedding_dim: 1024 # 与 embedding.embedding_dim 保持一致
+    embedding_dim: 1536
     distance_metric: cosine
     enable_sparse_fields: true
     metadata_jsonb: true
@@ -626,7 +606,7 @@ MCP 协议的 Tool 返回格式支持多种内容类型（`content` 数组），
 
   rerank:
     backend: cross_encoder # none | cross_encoder | llm
-    model: BAAI/bge-reranker-v2-m3
+    model: bge-reranker-v2-m3
 
   evaluation:
     backends: [ragas, custom]
@@ -952,6 +932,41 @@ dashboard:
   auto_refresh: true # 是否自动刷新（轮询新 trace）
   refresh_interval: 5 # 自动刷新间隔（秒）
 ```
+
+#### 3.5.7 前端视觉设计准则（Dashboard UI）
+
+为避免页面“功能可用但视觉平庸”的问题，Dashboard 前端开发（尤其阶段 B3/B4/B7、C 系列页面）必须遵循以下设计准则：
+
+1. 视觉方向先行（Style First）
+   - 每个页面在编码前必须先明确视觉方向（例如：工业监控、编辑型、极简或高密度运营看板）。
+   - 不允许默认“组件库拼装风格”直接交付；需体现明确品牌感与信息层级。
+
+2. 字体与排版（Typography）
+   - 禁止默认使用 `Arial/Roboto/Inter/system-ui` 作为唯一字体方案。
+   - 必须采用“标题字体 + 正文字体”组合，并在页面内形成稳定的字号/字重/行高层级。
+
+3. 色彩与变量（Color System）
+   - 必须以 CSS 变量统一管理核心色板（主色、强调色、语义色、边框色、背景层）。
+   - 禁止“白底+浅紫渐变”或无上下文的通用 AI 配色模板。
+
+4. 布局与空间（Composition）
+   - 管理后台场景默认采用“顶栏 + 侧栏 + 内容区”的清晰信息架构，并保证面包屑、页面标题、主要内容容器在同一视觉体系下。
+   - 页面应具备明确的信息密度控制：关键 KPI、图表区、列表区的视觉权重有主次。
+
+5. 动效与反馈（Motion）
+   - 至少提供页面级入场动效和关键交互态（hover/focus/active）。
+   - 动效应服务信息理解，不得堆叠无意义微动效。
+
+6. 背景与层次（Depth）
+   - 禁止单一纯色背景直铺全页；需通过渐变、纹理、分层阴影、半透明面板等手段建立纵深。
+
+7. 响应式与可用性（Responsive & Usability）
+   - 必须覆盖移动端断点，保证无横向溢出、菜单可达、主要信息可读。
+   - 关键交互元素（导航、搜索、筛选、按钮）在小屏下需保留可操作性。
+
+8. 验收约束（Acceptance Gate）
+   - PR 或任务验收时，除功能验收外，需同时检查：视觉方向一致性、变量化程度、移动端适配和信息层级。
+   - 未满足以上任一项，视为“设计验收不通过”。
 
 ### 3.6 多模态图片处理设计 (Multimodal Image Processing Design)
 
@@ -2431,6 +2446,8 @@ AuditResultView.vue 展示 20 项结果 + 判定说明 + 证据跳转
 
 系统通过 `rag-server/config/settings.yaml` 统一配置各组件实现，支持零代码切换：
 
+> 待确认：rag-server 和 sgcc-audit-report-app 中，postgresql是否指向了同一个数据库下的同一个表？
+
 ```yaml
 # rag-server/config/settings.yaml
 
@@ -2453,27 +2470,13 @@ llm:
   # OpenAI-compatible（用于 Qwen / vLLM 等）
   base_url: "${OPENAI_COMPAT_BASE_URL}"
 
-# Loader 配置（Ingestion Pipeline 文档解析后端）
-loader:
-  backend: markitdown # markitdown | mineru_api | mineru_local
-  mineru_api:
-    base_url: "https://mineru.net/api/v4"
-    api_token: "${MINERU_API_TOKEN}"
-    timeout_sec: 120
-  mineru_local:
-    endpoint: "http://localhost:8888" # Docker 部署地址，换机器只改此项
-    timeout_sec: 120
-
 # Embedding 配置
 embedding:
-  provider: bge # openai | azure | ollama | bge | openai-compatible
-  model: BAAI/bge-large-zh-v1.5 # 本机 RTX 4060 8GB，dim=1024
-  embedding_dim: 1024 # ⚠️ 必须与模型输出维度一致，切换模型时同步修改
+  provider: openai # openai | azure | ollama | bge | openai-compatible
+  model: text-embedding-3-small
+  embedding_dim: 1536
   batch_size: 64
   timeout_sec: 30
-  # 模型权重本地缓存目录（相对于 rag-server/ 工作目录，git-ignored）
-  # 换机器时 rsync 此目录，无需重新下载
-model_cache_dir: ./models
 
 # Vision LLM 配置（图片描述）
 vision_llm:
@@ -2496,7 +2499,7 @@ splitter:
 vector_store:
   backend: pgvector # 当前仅实现 pgvector，保留扩展位
   table: rag_chunks
-  embedding_dim: 1024 # 与 embedding.embedding_dim 保持一致
+  embedding_dim: 1536
   distance_metric: cosine
   enable_sparse_fields: true
   metadata_jsonb: true
@@ -2527,7 +2530,7 @@ retrieval:
 # 重排配置
 rerank:
   backend: cross_encoder # none | cross_encoder | llm
-  model: BAAI/bge-reranker-v2-m3 # 本机 RTX 4060 8GB，~1.1GB VRAM
+  model: bge-reranker-v2-m3
   top_m: 30
   timeout_sec: 20
   fallback_to_fusion: true
@@ -2656,6 +2659,12 @@ read_only: true
 3. `.env` 与系统环境变量（如 `AZURE_OPENAI_API_KEY`）
 4. 启动命令参数（如 `--config` 指定路径）
 
+分阶段实施约定：
+
+1. **A4（配置加载底座）**：仅要求建立加载优先级链路与关键字段校验，允许以最小字段集实现可运行基线。
+2. **D10（配置驱动校验）**：要求对齐本节 `5.6` 的全量关键配置语义，补齐配置模型并强化校验规则。
+3. 如用户明确要求提前全量对齐，可跨阶段执行，但需在任务报告中显式说明偏离排期。
+
 建议在启动阶段执行“配置完整性检查”：
 
 1. LLM/Embedding/Vision 提供者必需字段校验（`provider`、`model`、凭据）。
@@ -2752,56 +2761,56 @@ read_only: true
 
 #### 阶段 A：工程骨架与测试基座
 
-| 任务编号 | 任务名称                 | 状态 | 完成日期 | 备注                                                                                                                                                                                        |
-| -------- | ------------------------ | ---- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A1       | 创建完整目录结构与空文件 | [ ]  | -        | 严格按 5.2 目录树，创建所有目录与空文件（含 `rag-server/`、`sgcc-report-audit-app/`、`docs/`、`docker/` 及其全部子目录和文件），`.py`/`.ts`/`.vue`/`.css`/`.sql`/`.md`/`.yaml` 等均为空文件 |
-| A2       | 建立最小可运行入口       | [ ]  | -        | `rag-server/scripts/run_mcp_server.py`、`sgcc-report-audit-app/backend/src/sgcc_audit/main.py`、`frontend/src/main.ts`                                                                      |
-| A3       | 初始化依赖与测试基线     | [ ]  | -        | `pyproject.toml`、`uv.lock`、`pytest.ini`、`tests/unit`、`tests/integration`、`tests/e2e` 目录约定                                                                                          |
-| A4       | 配置加载与校验底座       | [ ]  | -        | `src/core/settings.py`、`sgcc_audit/core/config.py`，实现默认值/环境变量/文件优先级                                                                                                         |
-| A5       | 基础日志与异常规范       | [ ]  | -        | `core/logging.py`、`core/exceptions.py`、`core/constants.py`，统一错误码与 JSON 日志格式                                                                                                    |
+| 任务编号 | 任务名称                 | 状态 | 完成日期          | 备注                                                                                                                                                                                        |
+| -------- | ------------------------ | ---- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A1       | 创建完整目录结构与空文件 | [x]  | 26-03-14 14:00:39 | 严格按 5.2 目录树，创建所有目录与空文件（含 `rag-server/`、`sgcc-report-audit-app/`、`docs/`、`docker/` 及其全部子目录和文件），`.py`/`.ts`/`.vue`/`.css`/`.sql`/`.md`/`.yaml` 等均为空文件 |
+| A2       | 建立最小可运行入口       | [x]  | 26-03-14 14:49:11 | `rag-server/scripts/run_mcp_server.py`、`sgcc-report-audit-app/backend/src/sgcc_audit/main.py`、`frontend/src/main.ts`                                                                      |
+| A3       | 初始化依赖与测试基线     | [x]  | 26-03-15 17:04:07 | `pyproject.toml`、`uv.lock`、`pytest.ini`、`tests/unit`、`tests/integration`、`tests/e2e` 目录约定                                                                                          |
+| A4       | 配置加载与校验底座       | [x]  | 26-03-16 12:11:58 | `src/core/settings.py`、`sgcc_audit/core/config.py`，实现默认值/环境变量/文件优先级                                                                                                         |
+| A5       | 基础日志与异常规范       | [x]  | 26-03-16 13:18:10 | `core/logging.py`、`core/exceptions.py`、`core/constants.py`，统一错误码与 JSON 日志格式                                                                                                    |
 
 #### 阶段 B：前端页面骨架优先落地（Vue3 + Vite）
 
-| 任务编号 | 任务名称                  | 状态 | 完成日期 | 备注                                                                                             |
-| -------- | ------------------------- | ---- | -------- | ------------------------------------------------------------------------------------------------ |
-| B1       | 初始化 Vue3+Vite 前端工程 | [ ]  | -        | `frontend/package.json`、`vite.config.ts`、`tsconfig.json`、`src/main.ts`                        |
-| B2       | 路由与页面骨架            | [ ]  | -        | `src/router/index.ts` + `src/views/*` 7 页空骨架（审查结果/总览/数据/摄取/双 Trace/评估）        |
-| B3       | 全局布局与导航框架        | [ ]  | -        | `src/layouts/AppShell.vue`、侧边栏、顶栏、面包屑、页面容器                                       |
-| B4       | 设计变量与全局样式        | [ ]  | -        | `src/assets/styles/variables.css`、`src/assets/styles/global.css`，建立主题色/字号/间距/动效变量 |
-| B5       | 前端状态管理基座          | [ ]  | -        | `src/stores/` 定义 app/trace/audit 基础 store                                                    |
-| B6       | API 客户端与 Mock 适配    | [ ]  | -        | `src/api/http.ts`、`src/mock/mock.ts`、`src/types/index.ts`，保证离线可演示                      |
-| B7       | 前端骨架冒烟测试          | [ ]  | -        | `tests/e2e/*.spec.ts` 验证 7 页可打开、路由跳转与基础渲染                                        |
+| 任务编号 | 任务名称                  | 状态 | 完成日期          | 备注                                                                                             |
+| -------- | ------------------------- | ---- | ----------------- | ------------------------------------------------------------------------------------------------ |
+| B1       | 初始化 Vue3+Vite 前端工程 | [x]  | 26-03-16 14:42:40 | `frontend/package.json`、`vite.config.ts`、`tsconfig.json`、`src/main.ts`                        |
+| B2       | 路由与页面骨架            | [x]  | 26-03-16 14:55:27 | `src/router/index.ts` + `src/views/*` 7 页空骨架（审查结果/总览/数据/摄取/双 Trace/评估）        |
+| B3       | 全局布局与导航框架        | [x]  | 26-03-16 15:15:23 | `src/layouts/AppShell.vue`、侧边栏、顶栏、面包屑、页面容器                                       |
+| B4       | 设计变量与全局样式        | [x]  | 26-03-16 17:17:55 | `src/assets/styles/variables.css`、`src/assets/styles/global.css`，建立主题色/字号/间距/动效变量 |
+| B5       | 前端状态管理基座          | [x]  | 26-03-16 17:31:59 | `src/stores/` 定义 app/trace/audit 基础 store                                                    |
+| B6       | API 客户端与 Mock 适配    | [x]  | 26-03-16 17:41:11 | `src/api/http.ts`、`src/mock/mock.ts`、`src/types/index.ts`，保证离线可演示                      |
+| B7       | 前端骨架冒烟测试          | [x]  | 26-03-17 18:40:40 | `tests/e2e/*.spec.ts` 验证 7 页可打开、路由跳转与基础渲染                                        |
 
 #### 阶段 C：前端功能闭环与接口契约固化
 
-| 任务编号 | 任务名称                 | 状态 | 完成日期 | 备注                                                                                         |
-| -------- | ------------------------ | ---- | -------- | -------------------------------------------------------------------------------------------- |
-| C1       | 审查结果列表与 20 项卡片 | [ ]  | -        | `views/AuditResultView.vue` + `components/audit/*`：展示 `status/reason/evidence` 与筛选排序 |
-| C2       | 报告目录与详情联动       | [ ]  | -        | 左侧报告树 + 右侧审查详情联动，支持已完成/进行中状态切换                                     |
-| C3       | 证据跳转与文档定位组件   | [ ]  | -        | `components/audit/EvidenceDrawer.vue`：页码、段落锚点、图片缩略图跳转                        |
-| C4       | 系统总览页面真实指标卡   | [ ]  | -        | 读取配置与统计接口，展示 provider/model/vectorstore/健康状态                                 |
-| C5       | 数据浏览器页面           | [ ]  | -        | 文档列表、chunk 明细、metadata 展开、图片预览                                                |
-| C6       | Ingestion 管理页面       | [ ]  | -        | 上传/路径输入、任务启动、进度条、失败重试按钮                                                |
-| C7       | Ingestion Trace 页面     | [ ]  | -        | stage 瀑布图、耗时分布、明细抽屉                                                             |
-| C8       | Query Trace 页面         | [ ]  | -        | dense/sparse/fusion/rerank 对比与 Top-K 展示                                                 |
-| C9       | 评估页面占位到可用切换   | [ ]  | -        | 未启用占位 + 启用后指标表格/趋势图占位容器                                                   |
-| C10      | 前后端契约冻结           | [ ]  | -        | 产出 `docs/api/sgcc-backend-openapi.md` 与前端 `types.ts` 对齐                               |
+| 任务编号 | 任务名称                 | 状态 | 完成日期          | 备注                                                                                         |
+| -------- | ------------------------ | ---- | ----------------- | -------------------------------------------------------------------------------------------- |
+| C1       | 审查结果列表与 20 项卡片 | [x]  | 26-03-17 19:00:08 | `views/AuditResultView.vue` + `components/audit/*`：展示 `status/reason/evidence` 与筛选排序 |
+| C2       | 报告目录与详情联动       | [x]  | 26-03-17 19:11:09 | 左侧报告树 + 右侧审查详情联动，支持已完成/进行中状态切换                                     |
+| C3       | 证据跳转与文档定位组件   | [x]  | 26-03-17 19:25:22 | `components/audit/EvidenceDrawer.vue`：页码、段落锚点、图片缩略图跳转                        |
+| C4       | 系统总览页面真实指标卡   | [x]  | 26-03-17 19:47:20 | 读取配置与统计接口，展示 provider/model/vectorstore/健康状态                                 |
+| C5       | 数据浏览器页面           | [x]  | 26-03-17 21:49:29 | 文档列表、chunk 明细、metadata 展开、图片预览                                                |
+| C6       | Ingestion 管理页面       | [x]  | 26-03-17 22:16:12 | 上传/路径输入、任务启动、进度条、失败重试按钮                                                |
+| C7       | Ingestion Trace 页面     | [x]  | 26-03-17 22:40:29 | stage 瀑布图、耗时分布、明细抽屉                                                             |
+| C8       | Query Trace 页面         | [x]  | 26-03-17 23:15:25 | dense/sparse/fusion/rerank 对比与 Top-K 展示                                                 |
+| C9       | 评估页面占位到可用切换   | [x]  | 26-03-17 23:32:35 | 未启用占位 + 启用后指标表格/趋势图占位容器                                                   |
+| C10      | 前后端契约冻结           | [x]  | 26-03-17 23:50:16 | 产出 `docs/api/sgcc-backend-openapi.md` 与前端 `types.ts` 对齐                               |
 
 #### 阶段 D：RAG Server 工程骨架与可插拔 Libs 默认实现
 
-| 任务编号 | 任务名称                         | 状态 | 完成日期          | 备注                                                                                                                                          |
-| -------- | -------------------------------- | ---- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1       | BaseLLM 与 Provider 适配接口     | [ ]  | -                 | `src/libs/llm/base_llm.py` + 统一 `generate/chat` 契约                                                                                        |
-| D2       | LLM 实现（全 Provider 适配）     | [ ]  | -                 | `azure_openai_llm.py`、`openai_llm.py`、`qwen_llm.py`、`vllm_llm.py`、`deepseek_llm.py`、`ollama_llm.py`，openai-compatible 适配与参数校验    |
-| D3       | Embedding 抽象与实现             | [ ]  | -                 | `src/libs/embedding/base_embedding.py` + `openai_embedding.py`、`bge_embedding.py`、`ollama_embedding.py`                                     |
-| D4       | Vision LLM 抽象与实现            | [ ]  | -                 | `src/libs/vision/base_vision_llm.py` + `azure_vision_llm.py`、`qwen_vl_client.py`                                                             |
-| D5       | Splitter 抽象与默认实现          | [ ]  | -                 | `ingestion/splitters/base_splitter.py`、`recursive_character_splitter.py`、`parent_child_splitter.py`                                         |
-| D6       | VectorStore 抽象与 PgVector 实现 | [ ]  | -                 | `storage/vector/base_vector_store.py`、`pgvector_store.py`、`storage/db/engine.py`、`storage/db/session.py`                                   |
-| D7       | Reranker 抽象与实现              | [x]  | 26-03-26 22:14:00 | `rerank/base_reranker.py`、`none_reranker.py`、`cross_encoder_reranker.py`、`llm_reranker.py`；20 单测全通过（fallback/sort-stability/empty） |
-| D8       | Evaluator 抽象与工厂占位         | [ ]  | -                 | `evaluation/base_evaluator.py` + `factories/evaluator_factory.py`，统一 `evaluate()` 接口                                                     |
-| D9       | 全工厂路由联通                   | [ ]  | -                 | `factories/*_factory.py` 按 `settings.yaml` 动态实例化                                                                                        |
-| D10      | 配置驱动校验                     | [ ]  | -                 | `config/settings.yaml` + Pydantic 校验（provider/model/api_key/timeout）                                                                      |
-| D11      | Libs 层单元测试（Fake/Mock）     | [ ]  | -                 | `tests/unit` 覆盖工厂路由、参数合法性、fallback 分支                                                                                          |
+| 任务编号 | 任务名称                         | 状态 | 完成日期          | 备注                                                                                                                                       |
+| -------- | -------------------------------- | ---- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| D1       | BaseLLM 与 Provider 适配接口     | [x]  | 26-03-18 16:53:06 | `src/libs/llm/base_llm.py` + 统一 `generate/chat` 契约                                                                                     |
+| D2       | LLM 实现（全 Provider 适配）     | [x]  | 26-03-25 00:00:00 | `azure_openai_llm.py`、`openai_llm.py`、`qwen_llm.py`、`vllm_llm.py`、`deepseek_llm.py`、`ollama_llm.py`，openai-compatible 适配与参数校验 |
+| D3       | Embedding 抽象与实现             | [x]  | 26-03-25 23:28:00 | `src/libs/embedding/base_embedding.py` + `openai_embedding.py`、`bge_embedding.py`、`ollama_embedding.py`                                  |
+| D4       | Vision LLM 抽象与实现            | [ ]  | -                 | `src/libs/vision/base_vision_llm.py` + `azure_vision_llm.py`、`qwen_vl_client.py`                                                          |
+| D5       | Splitter 抽象与默认实现          | [ ]  | -                 | `ingestion/splitters/base_splitter.py`、`recursive_character_splitter.py`、`parent_child_splitter.py`                                      |
+| D6       | VectorStore 抽象与 PgVector 实现 | [ ]  | -                 | `storage/vector/base_vector_store.py`、`pgvector_store.py`、`storage/db/engine.py`、`storage/db/session.py`                                |
+| D7       | Reranker 抽象与实现              | [ ]  | -                 | `rerank/base_reranker.py`、`none_reranker.py`、`cross_encoder_reranker.py`、`llm_reranker.py`                                              |
+| D8       | Evaluator 抽象与工厂占位         | [ ]  | -                 | `evaluation/base_evaluator.py` + `factories/evaluator_factory.py`，统一 `evaluate()` 接口                                                  |
+| D9       | 全工厂路由联通                   | [ ]  | -                 | `factories/*_factory.py` 按 `settings.yaml` 动态实例化                                                                                     |
+| D10      | 配置驱动校验                     | [ ]  | -                 | `config/settings.yaml` + Pydantic 校验（provider/model/api_key/timeout）                                                                   |
+| D11      | Libs 层单元测试（Fake/Mock）     | [ ]  | -                 | `tests/unit` 覆盖工厂路由、参数合法性、fallback 分支                                                                                       |
 
 #### 阶段 E：Ingestion Pipeline 主链路打通
 
@@ -2925,20 +2934,20 @@ read_only: true
 
 ### 6.3 总体进度
 
-| 阶段     | 总任务数 | 已完成 | 进度   |
-| -------- | -------- | ------ | ------ |
-| 阶段 A   | 5        | 0      | 0%     |
-| 阶段 B   | 7        | 0      | 0%     |
-| 阶段 C   | 10       | 0      | 0%     |
-| 阶段 D   | 11       | 0      | 0%     |
-| 阶段 E   | 16       | 0      | 0%     |
-| 阶段 F   | 11       | 0      | 0%     |
-| 阶段 G   | 10       | 0      | 0%     |
-| 阶段 H   | 13       | 0      | 0%     |
-| 阶段 I   | 15       | 0      | 0%     |
-| 阶段 J   | 10       | 0      | 0%     |
-| 阶段 K   | 10       | 0      | 0%     |
-| **总计** | **118**  | **0**  | **0%** |
+| 阶段     | 总任务数 | 已完成 | 进度    |
+| -------- | -------- | ------ | ------- |
+| 阶段 A   | 5        | 5      | 100%    |
+| 阶段 B   | 7        | 7      | 100%    |
+| 阶段 C   | 10       | 10     | 100%    |
+| 阶段 D   | 11       | 3      | 27%     |
+| 阶段 E   | 16       | 0      | 0%      |
+| 阶段 F   | 11       | 0      | 0%      |
+| 阶段 G   | 10       | 0      | 0%      |
+| 阶段 H   | 13       | 0      | 0%      |
+| 阶段 I   | 15       | 0      | 0%      |
+| 阶段 J   | 10       | 0      | 0%      |
+| 阶段 K   | 10       | 0      | 0%      |
+| **总计** | **118**  | **25** | **21%** |
 
 ### 6.4 分任务实现细则（按 6.2 全量展开）
 
@@ -2946,13 +2955,13 @@ read_only: true
 
 #### 阶段 A：工程骨架与测试基座（实施细则）
 
-| 任务编号 | 目标                                             | 修改文件（需在 5.2 中存在）                                                                                                                                                                                                                                                                                                                                             | 实现类/函数                                       | 验收标准                                                        | 测试方法                                                                                    |
-| -------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| A1       | 严格按 5.2 目录树创建全部目录与空文件。          | 5.2 目录树中全部 262 个文件（含 `rag-server/`、`sgcc-report-audit-app/`、`docs/`、`docker/` 及其全部子目录和文件）                                                                                                                                                                                                                                                      | 无（目录与空文件）                                | 目录结构与 5.2 完全一致；所有文件已创建；`__init__.py` 可导入。 | `python -m compileall rag-server/src sgcc-report-audit-app/backend/src`                     |
-| A2       | 打通三入口最小启动路径（MCP/Backend/Frontend）。 | `rag-server/scripts/run_mcp_server.py`<br>`sgcc-report-audit-app/backend/src/sgcc_audit/main.py`<br>`sgcc-report-audit-app/frontend/src/main.ts`<br>`sgcc-report-audit-app/scripts/run_backend.sh`<br>`sgcc-report-audit-app/scripts/run_frontend.sh`                                                                                                                   | `main()`（脚本入口）<br>`create_app()`            | 三端入口可启动且返回健康响应或渲染首页。                        | 后端 `uv run python -m sgcc_audit.main --help`；前端 `npm run dev -- --host 0.0.0.0` 冒烟。 |
-| A3       | 固化依赖与测试基线，统一 Python/前端测试约定。   | `rag-server/pyproject.toml`<br>`rag-server/pytest.ini`<br>`sgcc-report-audit-app/backend/pyproject.toml`<br>`sgcc-report-audit-app/backend/pytest.ini`<br>`rag-server/tests/conftest.py`<br>`sgcc-report-audit-app/backend/tests/conftest.py`                                                                                                                           | 无（配置）                                        | `pytest` 能发现 `unit/integration/e2e`；依赖安装无冲突。        | `uv sync` 后执行 `uv run pytest -q --collect-only`。                                        |
-| A4       | 建立配置加载底座与优先级策略（文件+环境变量）。  | `rag-server/src/core/settings.py`<br>`sgcc-report-audit-app/backend/src/sgcc_audit/core/config.py`<br>`rag-server/config/settings.yaml`<br>`sgcc-report-audit-app/config/settings.yaml`                                                                                                                                                                                 | `load_settings()`<br>`Settings`<br>`get_config()` | 默认配置可加载；环境变量可覆盖关键字段；缺失必填项时报错。      | `tests/unit` 增加配置加载测试；用临时 env 覆盖断言。                                        |
-| A5       | 建立统一日志与异常编码规范。                     | `rag-server/src/core/logging.py`<br>`rag-server/src/core/exceptions.py`<br>`rag-server/src/core/constants.py`<br>`sgcc-report-audit-app/backend/src/sgcc_audit/core/logging.py`<br>`sgcc-report-audit-app/backend/src/sgcc_audit/core/exceptions.py`<br>`sgcc-report-audit-app/backend/src/sgcc_audit/core/constants.py`<br>`sgcc-report-audit-app/config/logging.yaml` | `setup_logging()`<br>`AppError`<br>`ErrorCode`    | 错误响应结构统一；日志输出 JSON Lines；异常可映射状态码。       | 单元测试断言异常映射；运行示例请求检查日志字段。                                            |
+| 任务编号 | 目标                                             | 修改文件（需在 5.2 中存在）                                                                                                                                                                                                                                                                                                                                             | 实现类/函数                                       | 验收标准                                                                         | 测试方法                                                                                    |
+| -------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| A1       | 严格按 5.2 目录树创建全部目录与空文件。          | 5.2 目录树中全部 262 个文件（含 `rag-server/`、`sgcc-report-audit-app/`、`docs/`、`docker/` 及其全部子目录和文件）                                                                                                                                                                                                                                                      | 无（目录与空文件）                                | 目录结构与 5.2 完全一致；所有文件已创建；`__init__.py` 可导入。                  | `python -m compileall rag-server/src sgcc-report-audit-app/backend/src`                     |
+| A2       | 打通三入口最小启动路径（MCP/Backend/Frontend）。 | `rag-server/scripts/run_mcp_server.py`<br>`sgcc-report-audit-app/backend/src/sgcc_audit/main.py`<br>`sgcc-report-audit-app/frontend/src/main.ts`<br>`sgcc-report-audit-app/scripts/run_backend.sh`<br>`sgcc-report-audit-app/scripts/run_frontend.sh`                                                                                                                   | `main()`（脚本入口）<br>`create_app()`            | 三端入口可启动且返回健康响应或渲染首页。                                         | 后端 `uv run python -m sgcc_audit.main --help`；前端 `npm run dev -- --host 0.0.0.0` 冒烟。 |
+| A3       | 固化依赖与测试基线，统一 Python/前端测试约定。   | `rag-server/pyproject.toml`<br>`rag-server/pytest.ini`<br>`sgcc-report-audit-app/backend/pyproject.toml`<br>`sgcc-report-audit-app/backend/pytest.ini`<br>`rag-server/tests/conftest.py`<br>`sgcc-report-audit-app/backend/tests/conftest.py`                                                                                                                           | 无（配置）                                        | `pytest` 能发现 `unit/integration/e2e`；依赖安装无冲突。                         | `uv sync` 后执行 `uv run pytest -q --collect-only`。                                        |
+| A4       | 建立配置加载底座与优先级策略（文件+环境变量）。  | `rag-server/src/core/settings.py`<br>`sgcc-report-audit-app/backend/src/sgcc_audit/core/config.py`<br>`rag-server/config/settings.yaml`<br>`sgcc-report-audit-app/config/settings.yaml`                                                                                                                                                                                 | `load_settings()`<br>`Settings`<br>`get_config()` | 默认配置可加载；环境变量可覆盖关键字段；缺失必填项时报错；以最小关键字段集为准。 | `tests/unit` 增加配置加载测试；用临时 env 覆盖断言。                                        |
+| A5       | 建立统一日志与异常编码规范。                     | `rag-server/src/core/logging.py`<br>`rag-server/src/core/exceptions.py`<br>`rag-server/src/core/constants.py`<br>`sgcc-report-audit-app/backend/src/sgcc_audit/core/logging.py`<br>`sgcc-report-audit-app/backend/src/sgcc_audit/core/exceptions.py`<br>`sgcc-report-audit-app/backend/src/sgcc_audit/core/constants.py`<br>`sgcc-report-audit-app/config/logging.yaml` | `setup_logging()`<br>`AppError`<br>`ErrorCode`    | 错误响应结构统一；日志输出 JSON Lines；异常可映射状态码。                        | 单元测试断言异常映射；运行示例请求检查日志字段。                                            |
 
 #### 阶段 B：前端页面骨架优先落地（实施细则）
 
@@ -2983,19 +2992,19 @@ read_only: true
 
 #### 阶段 D：RAG Server 工程骨架与可插拔 Libs 默认实现（实施细则）
 
-| 任务编号 | 目标                                   | 修改文件（需在 5.2 中存在）                                                                                                                                                                                                                                                                                | 实现类/函数                              | 验收标准                                    | 测试方法                                   |
-| -------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------- | ------------------------------------------ |
-| D1       | 定义统一 LLM 抽象接口。                | `rag-server/src/libs/llm/base_llm.py`<br>`rag-server/src/utils/retry.py`                                                                                                                                                                                                                                   | `BaseLLM.generate()`<br>`BaseLLM.chat()` | 所有 LLM 适配器遵守同一协议；重试策略可用。 | `tests/unit` 对抽象实现契约测试。          |
-| D2       | 实现全 Provider LLM 适配。             | `rag-server/src/libs/llm/azure_openai_llm.py`<br>`rag-server/src/libs/llm/openai_llm.py`<br>`rag-server/src/libs/llm/qwen_llm.py`<br>`rag-server/src/libs/llm/vllm_llm.py`<br>`rag-server/src/libs/llm/deepseek_llm.py`<br>`rag-server/src/libs/llm/ollama_llm.py`                                         | 各 Provider Client 类                    | 配置切换 provider 后可完成最小调用。        | Fake transport 单测 + 可选真实联调。       |
-| D3       | 完成 Embedding 抽象与实现。            | `rag-server/src/libs/embedding/base_embedding.py`<br>`rag-server/src/libs/embedding/openai_embedding.py`<br>`rag-server/src/libs/embedding/bge_embedding.py`<br>`rag-server/src/libs/embedding/ollama_embedding.py`                                                                                        | `BaseEmbedding.embed_texts()`            | Dense 编码接口稳定，可批量处理。            | 单测覆盖维度、批次、异常分支。             |
-| D4       | 完成 Vision LLM 抽象与实现。           | `rag-server/src/libs/vision/base_vision_llm.py`<br>`rag-server/src/libs/vision/azure_vision_llm.py`<br>`rag-server/src/libs/vision/qwen_vl_client.py`                                                                                                                                                      | `caption_image()`                        | 输入图片路径可返回描述文本。                | Mock Vision 调用与超时回退测试。           |
-| D5       | 建立 Splitter 抽象和默认实现。         | `rag-server/src/ingestion/splitters/base_splitter.py`<br>`rag-server/src/ingestion/splitters/recursive_character_splitter.py`<br>`rag-server/src/ingestion/splitters/parent_child_splitter.py`<br>`rag-server/tests/unit/test_splitter_recursive.py`                                                       | `split()`<br>`split_parent_child()`      | 支持语义切分与父子切分两模式。              | 样本文本切分断言（数量/边界）。            |
-| D6       | 建立 VectorStore 抽象并实现 PgVector。 | `rag-server/src/storage/vector/base_vector_store.py`<br>`rag-server/src/storage/vector/pgvector_store.py`<br>`rag-server/src/storage/db/engine.py`<br>`rag-server/src/storage/db/session.py`                                                                                                               | `upsert()`<br>`query()`                  | 向量写入/检索可执行；支持 metadata 过滤。   | 集成测试连接 PostgreSQL+PgVector。         |
-| D7       | 建立 Reranker 抽象与三实现。           | `rag-server/src/rerank/base_reranker.py`<br>`rag-server/src/rerank/none_reranker.py`<br>`rag-server/src/rerank/cross_encoder_reranker.py`<br>`rag-server/src/rerank/llm_reranker.py`                                                                                                                       | `rerank()`                               | 三模式可切换，失败可回退 none。             | 单测覆盖 fallback 与排序稳定性。           |
-| D8       | 评估器抽象与工厂占位。                 | `rag-server/src/evaluation/base_evaluator.py`<br>`rag-server/src/factories/evaluator_factory.py`                                                                                                                                                                                                           | `BaseEvaluator.evaluate()`               | 评估器可被统一实例化并返回标准结构。        | 单测验证工厂路由与未知类型报错。           |
-| D9       | 打通所有工厂路由。                     | `rag-server/src/factories/llm_factory.py`<br>`rag-server/src/factories/vision_llm_factory.py`<br>`rag-server/src/factories/embedding_factory.py`<br>`rag-server/src/factories/splitter_factory.py`<br>`rag-server/src/factories/vector_store_factory.py`<br>`rag-server/src/factories/reranker_factory.py` | `create_*()` 系列                        | `settings.yaml` 切换可驱动实例变化。        | 参数化单测遍历 provider 组合。             |
-| D10      | 完善配置模型校验。                     | `rag-server/config/settings.yaml`<br>`rag-server/src/core/settings.py`                                                                                                                                                                                                                                     | `validate_settings()`                    | provider/model/api_key/timeout 校验完整。   | 无效配置样例测试 + 正常样例回归。          |
-| D11      | 完成 Libs 层单元测试基线。             | `rag-server/tests/unit/test_reranker_fallback.py`<br>`rag-server/tests/unit/test_rrf_fusion.py`<br>`rag-server/tests/unit/test_trace_context.py`                                                                                                                                                           | pytest 测试函数                          | 关键工厂与 fallback 分支覆盖到位。          | `uv run pytest rag-server/tests/unit -q`。 |
+| 任务编号 | 目标                                   | 修改文件（需在 5.2 中存在）                                                                                                                                                                                                                                                                                | 实现类/函数                              | 验收标准                                                               | 测试方法                                   |
+| -------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------ |
+| D1       | 定义统一 LLM 抽象接口。                | `rag-server/src/libs/llm/base_llm.py`<br>`rag-server/src/utils/retry.py`                                                                                                                                                                                                                                   | `BaseLLM.generate()`<br>`BaseLLM.chat()` | 所有 LLM 适配器遵守同一协议；重试策略可用。                            | `tests/unit` 对抽象实现契约测试。          |
+| D2       | 实现全 Provider LLM 适配。             | `rag-server/src/libs/llm/azure_openai_llm.py`<br>`rag-server/src/libs/llm/openai_llm.py`<br>`rag-server/src/libs/llm/qwen_llm.py`<br>`rag-server/src/libs/llm/vllm_llm.py`<br>`rag-server/src/libs/llm/deepseek_llm.py`<br>`rag-server/src/libs/llm/ollama_llm.py`                                         | 各 Provider Client 类                    | 配置切换 provider 后可完成最小调用。                                   | Fake transport 单测 + 可选真实联调。       |
+| D3       | 完成 Embedding 抽象与实现。            | `rag-server/src/libs/embedding/base_embedding.py`<br>`rag-server/src/libs/embedding/openai_embedding.py`<br>`rag-server/src/libs/embedding/bge_embedding.py`<br>`rag-server/src/libs/embedding/ollama_embedding.py`                                                                                        | `BaseEmbedding.embed_texts()`            | Dense 编码接口稳定，可批量处理。                                       | 单测覆盖维度、批次、异常分支。             |
+| D4       | 完成 Vision LLM 抽象与实现。           | `rag-server/src/libs/vision/base_vision_llm.py`<br>`rag-server/src/libs/vision/azure_vision_llm.py`<br>`rag-server/src/libs/vision/qwen_vl_client.py`                                                                                                                                                      | `caption_image()`                        | 输入图片路径可返回描述文本。                                           | Mock Vision 调用与超时回退测试。           |
+| D5       | 建立 Splitter 抽象和默认实现。         | `rag-server/src/ingestion/splitters/base_splitter.py`<br>`rag-server/src/ingestion/splitters/recursive_character_splitter.py`<br>`rag-server/src/ingestion/splitters/parent_child_splitter.py`<br>`rag-server/tests/unit/test_splitter_recursive.py`                                                       | `split()`<br>`split_parent_child()`      | 支持语义切分与父子切分两模式。                                         | 样本文本切分断言（数量/边界）。            |
+| D6       | 建立 VectorStore 抽象并实现 PgVector。 | `rag-server/src/storage/vector/base_vector_store.py`<br>`rag-server/src/storage/vector/pgvector_store.py`<br>`rag-server/src/storage/db/engine.py`<br>`rag-server/src/storage/db/session.py`                                                                                                               | `upsert()`<br>`query()`                  | 向量写入/检索可执行；支持 metadata 过滤。                              | 集成测试连接 PostgreSQL+PgVector。         |
+| D7       | 建立 Reranker 抽象与三实现。           | `rag-server/src/rerank/base_reranker.py`<br>`rag-server/src/rerank/none_reranker.py`<br>`rag-server/src/rerank/cross_encoder_reranker.py`<br>`rag-server/src/rerank/llm_reranker.py`                                                                                                                       | `rerank()`                               | 三模式可切换，失败可回退 none。                                        | 单测覆盖 fallback 与排序稳定性。           |
+| D8       | 评估器抽象与工厂占位。                 | `rag-server/src/evaluation/base_evaluator.py`<br>`rag-server/src/factories/evaluator_factory.py`                                                                                                                                                                                                           | `BaseEvaluator.evaluate()`               | 评估器可被统一实例化并返回标准结构。                                   | 单测验证工厂路由与未知类型报错。           |
+| D9       | 打通所有工厂路由。                     | `rag-server/src/factories/llm_factory.py`<br>`rag-server/src/factories/vision_llm_factory.py`<br>`rag-server/src/factories/embedding_factory.py`<br>`rag-server/src/factories/splitter_factory.py`<br>`rag-server/src/factories/vector_store_factory.py`<br>`rag-server/src/factories/reranker_factory.py` | `create_*()` 系列                        | `settings.yaml` 切换可驱动实例变化。                                   | 参数化单测遍历 provider 组合。             |
+| D10      | 完善配置模型校验并对齐 5.6 配置语义。  | `rag-server/config/settings.yaml`<br>`rag-server/src/core/settings.py`                                                                                                                                                                                                                                     | `validate_settings()`                    | provider/model/api_key/timeout 校验完整；补齐 5.6 关键配置项语义校验。 | 无效配置样例测试 + 正常样例回归。          |
+| D11      | 完成 Libs 层单元测试基线。             | `rag-server/tests/unit/test_reranker_fallback.py`<br>`rag-server/tests/unit/test_rrf_fusion.py`<br>`rag-server/tests/unit/test_trace_context.py`                                                                                                                                                           | pytest 测试函数                          | 关键工厂与 fallback 分支覆盖到位。                                     | `uv run pytest rag-server/tests/unit -q`。 |
 
 #### 阶段 E：Ingestion Pipeline 主链路打通（实施细则）
 
