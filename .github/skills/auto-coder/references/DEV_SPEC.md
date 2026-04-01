@@ -2848,9 +2848,9 @@ read_only: true
 | D5       | Splitter 抽象与默认实现          | [x]  | 26-03-26 21:11:05 | `ingestion/splitters/base_splitter.py`、`recursive_character_splitter.py`、`parent_child_splitter.py`；16 单测全通过                                        |
 | D6       | VectorStore 抽象与 PgVector 实现 | [x]  | 26-03-26 21:43:00 | `storage/vector/base_vector_store.py`、`pgvector_store.py`、`storage/db/engine.py`、`storage/db/session.py`；9 集成测试全通过（upsert/query/delete/filter） |
 | D7       | Reranker 抽象与实现              | [x]  | 26-03-26 22:14:00 | `rerank/base_reranker.py`、`none_reranker.py`、`cross_encoder_reranker.py`、`llm_reranker.py`；20 单测全通过（fallback/sort-stability/empty）               |
-| D8       | Evaluator 抽象与工厂占位         | [ ]  | -                 | `evaluation/base_evaluator.py` + `factories/evaluator_factory.py`，统一 `evaluate()` 接口                                                                   |
-| D9       | 全工厂路由联通                   | [ ]  | -                 | `factories/*_factory.py` 按 `settings.yaml` 动态实例化                                                                                                      |
-| D10      | 配置驱动校验                     | [ ]  | -                 | `config/settings.yaml` + Pydantic 校验（provider/model/api_key/timeout）                                                                                    |
+| D8       | Evaluator 抽象与工厂占位         | [x]  | 26-04-01 10:30:00 | `evaluation/base_evaluator.py` + `factories/evaluator_factory.py`，统一 `evaluate()` 接口                                                                   |
+| D9       | 全工厂路由联通                   | [x]  | 26-04-01 11:00:00 | `factories/*_factory.py` 按 `settings.yaml` 动态实例化                                                                                                      |
+| D10      | 配置驱动校验                     | [x]  | 26-04-01 18:30:00 | `config/settings.yaml` + Pydantic 校验（provider/model/api_key/timeout）                                                                                    |
 | D11      | Libs 层单元测试（Fake/Mock）     | [ ]  | -                 | `tests/unit` 覆盖工厂路由、参数合法性、fallback 分支                                                                                                        |
 
 #### 阶段 E：Ingestion Pipeline 主链路打通
@@ -2980,7 +2980,7 @@ read_only: true
 | 阶段 A   | 5        | 5      | 100%    |
 | 阶段 B   | 7        | 7      | 100%    |
 | 阶段 C   | 10       | 10     | 100%    |
-| 阶段 D   | 11       | 7      | 64%     |
+| 阶段 D   | 11       | 10     | 91%     |
 | 阶段 E   | 16       | 0      | 0%      |
 | 阶段 F   | 11       | 0      | 0%      |
 | 阶段 G   | 10       | 0      | 0%      |
@@ -2988,7 +2988,7 @@ read_only: true
 | 阶段 I   | 15       | 0      | 0%      |
 | 阶段 J   | 10       | 0      | 0%      |
 | 阶段 K   | 10       | 0      | 0%      |
-| **总计** | **118**  | **29** | **25%** |
+| **总计** | **118**  | **32** | **27%** |
 
 ### 6.4 分任务实现细则（按 6.2 全量展开）
 

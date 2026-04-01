@@ -1,53 +1,136 @@
-# NOTE:
-# This is the A4 baseline configuration used to validate loader priority
-# (defaults + settings.yaml + env overrides). It is intentionally minimal.
-# Full config-driven schema from DEV_SPEC section 5.6 is planned in D10.
-app_name: rag-mcp-server
-environment: development
+# rag-server/config/settings.yaml
+# D10: Full DEV_SPEC 5.6.1 configuration schema.
+# Sensitive credentials should be injected via environment variables;
+# placeholder values here will trigger validate_settings() warnings.
 
-# Local model cache directory (relative to rag-server/ working directory).
-# sentence-transformers and CrossEncoder load from here when
-# SENTENCE_TRANSFORMERS_HOME points to this path at startup.
-# This directory is git-ignored; copy/rsync it when migrating to a new host.
-model_cache_dir: ./models
+app:
+  env: local # local | test | prod
+  log_level: INFO
 
+# LLM 配置（生成/重写/解释）
 llm:
-  provider: qwen
+  provider: qwen # azure | openai | deepseek | ollama | openai-compatible | qwen
   model: qwen-plus
-  api_key: replace-me
+  temperature: 0.1
+  max_tokens: 2000
   timeout_seconds: 30
-retrieval:
-  top_k: 5
+  api_key: replace-me # override with RAG_LLM_API_KEY or AZURE_OPENAI_API_KEY
+  # Azure-specific (only required when provider=azure):
+  # endpoint: "${AZURE_OPENAI_ENDPOINT}"
+  # api_version: "2024-10-21"
+  # deployment_name: "${AZURE_OPENAI_DEPLOYMENT}"
+  # OpenAI-compatible base URL (for vLLM / Qwen / DeepSeek):
+  # base_url: "${OPENAI_COMPAT_BASE_URL}"
 
-# D6: PostgreSQL connection defaults (override with PG_HOST/PG_DATABASE/etc. env vars)
-postgres:
-  host: localhost
-  port: 5432
-  database: rag_db
-  user: postgres
-  password: ""
-  schema: public
-  sslmode: disable
-  pool_size: 5
-  pool_timeout_sec: 30
-  statement_timeout_ms: 30000
+# Loader 配置（Ingestion Pipeline 文档解析后端）
+loader:
+  backend: markitdown # markitdown | mineru_api | mineru_local
+  mineru_api:
+    base_url: "https://mineru.net/api/v4"
+    api_token: ""
+    timeout_sec: 120
+  mineru_local:
+    endpoint: "http://localhost:8888"
+    timeout_sec: 120
 
-# D6: VectorStore configuration
-# embedding_dim must match the local model output:
-#   bge-large-zh-v1.5 / bge-m3 -> 1024
-#   OpenAI text-embedding-3-small  -> 1536  (switch back when using OpenAI)
+# Embedding 配置
+embedding:
+  provider: bge # openai | azure | ollama | bge | openai-compatible
+  model: BAAI/bge-large-zh-v1.5
+  embedding_dim: 1024 # ⚠️ must match model output; update when switching models
+  batch_size: 64
+  timeout_sec: 30
+  model_cache_dir: ./models # git-ignored; rsync when migrating to a new host
+
+# Vision LLM 配置（图片描述）
+vision_llm:
+  provider: qwen-vl # azure | qwen-vl | openai-compatible
+  model: qwen-vl-max
+  api_key: "" # override with DASHSCOPE_API_KEY
+  base_url: "" # override with DASHSCOPE_BASE_URL
+  timeout_sec: 60
+
+# 切分配置
+splitter:
+  backend: recursive_character # recursive_character | parent_child
+  chunk_size: 1000
+  chunk_overlap: 150
+  separators: ["\n\n", "\n", "。", "；", "，", " "]
+  enable_parent_child: true
+  parent_trigger_k: 3
+
+# 向量存储配置
 vector_store:
   backend: pgvector
   table: rag_chunks
-  embedding_dim: 1024 # bge-large-zh-v1.5 / bge-m3
+  embedding_dim: 1024 # ⚠️ must match embedding.embedding_dim
   distance_metric: cosine
   enable_sparse_fields: true
   metadata_jsonb: true
 
-# D7: Reranker configuration
+# PostgreSQL 连接配置
+postgres:
+  host: localhost # override with PG_HOST
+  port: 5432
+  database: rag_db # override with PG_DATABASE
+  user: postgres # override with PG_USER
+  password: "" # override with PG_PASSWORD
+  schema: public
+  sslmode: disable
+  pool_size: 10
+  pool_timeout_sec: 30
+  statement_timeout_ms: 30000
+
+# 检索配置
+retrieval:
+  top_k: 5 # legacy alias; prefer final_top_k for new code
+  mode: hybrid # dense | sparse | hybrid
+  sparse_backend: bm25
+  dense_top_k: 30
+  sparse_top_k: 30
+  fusion_algorithm: rrf # rrf | weighted_sum (reserved)
+  fusion_k: 60
+  final_top_k: 10
+  score_threshold: 0.0
+
+# 重排配置
 rerank:
   backend: cross_encoder # none | cross_encoder | llm
   model: BAAI/bge-reranker-v2-m3
   max_candidates: 30
   timeout_sec: 10.0
   fallback_to_none: true
+
+# 评估配置
+evaluation:
+  enabled: true
+  backends: [ragas, custom]
+  golden_test_set: "./data/eval/golden_set.jsonl"
+  custom_metrics: [hit_rate, mrr, ndcg, groundedness]
+
+# 可观测性配置
+observability:
+  enabled: true
+  sink: postgres # postgres | jsonl | both
+  jsonl_mirror_enabled: true
+  jsonl_file: "./logs/rag/traces.jsonl"
+  detail_level: standard # minimal | standard | verbose
+
+# MCP Server 配置
+mcp:
+  transport: stdio
+  protocol_version: "2025-06-18"
+  tool_timeout_sec: 60
+
+# 路径配置
+paths:
+  documents_root: "./data/documents"
+  images_root: "./data/images"
+  cache_root: "./cache"
+  logs_root: "./logs/rag"
+
+# Legacy top-level fields (kept for A4 backward compatibility)
+app_name: rag-mcp-server
+environment: development
+model_cache_dir: ./models
+
